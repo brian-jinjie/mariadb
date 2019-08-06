@@ -1,0 +1,44 @@
+RDBMS1---day01
+一、搭建数据库服务器
+	1.1 相关概念
+	1.2 在50主机部署mysql数据库服务      练习到 11：35
+		解包
+		安装软件包
+		启动mysqld服务
+		查看服务进程和端口
+		查看初始登陆密码
+		使用初始密码登陆
+		修改登陆密码
+		断开连接
+		使用修改后的密码登陆
+		修改密码策略
+		根据新密码策略设置密码
+		使用新密码登陆
+]# tar -xvf  mysql-5.7.17.tar 
+]# ls *.rpm
+]# yum -y  install mysql-community-*.rpm
+]# systemctl  start mysqld
+]# ls  /var/lib/mysql
+]# systemctl  enable mysqld
+]# netstat  -utnlp  | grep  :3306
+]# ps -C  mysqld
+
+		]# grep  password  /var/log/mysqld.log 
+		]# mysql -hlocalhost -uroot -p'f<tbekh-d8Y!'
+		mysql> alter user  root@"localhost" identified by "123qqq...A";
+		mysql> exit
+
+]# mysql  -uroot -p123qqq...A
+mysql> show variables like "%password%";
+mysql> set global validate_password_length=6;
+mysql> set global validate_password_policy=0;
+mysql> alter user  root@"localhost" identified by "tarena";
+mysql> exit
+
+	]# mysql  -uroot -ptarena
+	]# vim /etc/my.cnf
+		[mysqld]
+		validate_password_length=6
+		validate_password_policy=0
+	:wq
+  
