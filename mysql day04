@@ -182,7 +182,10 @@ mysql> select * from db3.user limit 1;
 	mysql> use db1;
 	mysql> show tables;
 	
-	完全备份
+	
+	逻辑备份:使用软件再带备份程序(备份命令)对数据的备份,在执行备份命令时,会根据已有的数据生成对应的命令,把命令存放到指定的备份文件里.恢复时
+执行备份文件里.恢复时,执行备份文件.
+		完全备份:备份所有数据
 		命令
 		]#mysqldump   -uroot    -p密码    库名  >  目录/xxx.sql
 
@@ -203,8 +206,12 @@ mysql> select * from db3.user limit 1;
 		mysql>create database db3;
  
 		]#mysql  -uroot    -p密码 db3 < /tmp/db3.sql	
-		mysql> select  * from db3.user;
-三、增量备份
+mysql> select  * from db3.user;
+
+三 差异备份:备份完全备份后,所有产生的新数据.
+
+四、增量备份:备份上次备份后,所有产生的新数据
+
 		3.1 binlog日志的使用
 			3.1.1 binlog日志介绍（binlog日志是什么）
 					
