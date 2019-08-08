@@ -181,8 +181,7 @@ mysql> select * from db3.user limit 1;
 	mysql> select  * from db3.user;
 	mysql> use db1;
 	mysql> show tables;
-				练习到16：30 
-
+	
 	完全备份
 		命令
 		]#mysqldump   -uroot    -p密码    库名  >  目录/xxx.sql
@@ -205,8 +204,6 @@ mysql> select * from db3.user limit 1;
  
 		]#mysql  -uroot    -p密码 db3 < /tmp/db3.sql	
 		mysql> select  * from db3.user;
-
-							休息到 17：15 
 三、增量备份
 		3.1 binlog日志的使用
 			3.1.1 binlog日志介绍（binlog日志是什么）
