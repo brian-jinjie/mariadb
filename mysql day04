@@ -1,0 +1,320 @@
+day 04
+++++++++++RDBMS1_DAY04++++++++++++++
+一、用户授权
+	1.1 用户授权： 在数据库服务器上添加新的连接用户，默认只允许数据库管理员本机登陆
+
+	1.2 命令：
+	    mysql> grant  权限列表  on   库名  to  用户名@”客户端地址” identified  by  “密码” with  grant  options ;  
+ 
+		休息到11：16 
+	例子：
+mysql> grant   all    on     *.*     to     mydba@"%"  identified by "123qqq...A"
+    -> with grant option;
+
+
+mysql> grant select on  db3.user to admin@"192.168.4.%" identified by "123qqq...A";
+
+
+mysql> grant select , update , insert ,delete on db3.* to admin2@"localhost"
+    -> identified by "123qqq...A";
+
+
+	1.3 在客户端使用授权连接数据库服务器
+		]# mysql -h数据库服务器ip地址  -u授权用户名 -p密码
+		]# mysql -h192.168.4.50  -uadmin  -p123qqq...A
+		mysql> show grants;
++-------------------------------------------------------+
+| Grants for admin@192.168.4.%                          |
++-------------------------------------------------------+
+| GRANT USAGE ON *.* TO 'admin'@'192.168.4.%'           |
+| GRANT SELECT ON `db3`.`user` TO 'admin'@'192.168.4.%' |
++-------------------------------------------------------+
+2 rows in set (0.00 sec)
+		mysql> delete from  db3.user;
+ERROR 1142 (42000): DELETE command denied to user 'admin'@'192.168.4.51' for table 'user'
+mysql> 
+mysql> update db3.user set password="A";
+ERROR 1142 (42000): UPDATE command denied to user 'admin'@'192.168.4.51' for table 'user'
+mysql> 
+mysql> select * from db3.user limit 1;
++----+------+------+----------+------+------+--------------+---------+-----------+
+| id | name | age  | password | uid  | gid  | comment      | homedir | shell     |
++----+------+------+----------+------+------+--------------+---------+-----------+
+|  1 | root |   19 | x        |    0 |    0 | student user | /root   | /bin/bash |
++----+------+------+----------+------+------+--------------+---------+-----------+
+1 row in set (0.00 sec)
+
+	
+	1.4 相关命令
+		select user(); //显示登录用户名及客户端地址
+		show grants;   //用户显示自身访问权限 
+		show  grants   for  用户名@“客户端地址”;  //管理员查看已有授权用户权限
+		set  password=password(“密码”); //授权用户连接后修改连接密码
+		set   password   for 用户名@“客户端地址”= password(“密码”)； //管理员重置授权用户连接密码
+		drop user 用户名@“客户端地址”; //删除授权用户
+
+
+	1.5 授权库: mysql库 记录授权信息，主要表如下：
+			user表    	//记录已有的授权用户及权限
+			db表       	//记录已有授权用户对数据库的访问权限
+			tables_priv表   //记录已有授权用户对表的访问权限
+			columns_priv表  //记录已有授权用户对字段的访问权限
+		
+
+			mysql> desc mysql.user;
+			mysql> select host,user from mysql.user;
+			mysql> show  grants for mydba@"%";
+
+
+			mysql> desc mysql.db;
+			mysql> select host,user,db from mysql.db;
+			mysql> select  * from mysql.db 
+				 where db="db3" and user="admin2" and host="localhost"\G;
+			mysql> show grants for  admin2@"localhost";
+			mysql> update mysql.db set Drop_priv="Y" 
+				where db="db3" and user="admin2" and host="localhost";
+			mysql> flush privileges; //重新加载表记录
+			mysql> show grants for  admin2@"localhost";
+			
+
+			mysql> desc mysql.tables_priv;
+			mysql> select host,user,db,Table_name from mysql.tables_priv;
+
+			mysql> select * from mysql.tables_priv 
+					where Table_name="user" and db="db3"\G;
+
+			mysql> show grants for admin@"192.168.4.%";
+
+
+			mysql> desc mysql.columns_priv;
+			mysql> select  * from  mysql.columns_priv;
+			mysql> grant select ,update(name,password) on  db3.user  
+					to admin3@"localhost" identified by "123qqq...A" ;
+
+			mysql> select  * from  mysql.columns_priv;
+			
+			]# mysql -uadmin3  -p123qqq...A
+			mysql> show  grants;
+			mysql> update  db3.user set age=18;
+			mysql> update  db3.user set password="F";
+			mysql> select  password from db3.user;
+
+			
+	1.6 撤销权限：删除授权用户的权限
+		1.6.1 命令：
+			mysql> revoke  权限列表  on  库名.表   from  用户名@"客户端地址";
+
+		例子：
+			mysql> select host,user from mysql.user;
+			mysql> show grants for mydba@"%";
+
+			mysql> revoke grant option on *.* from mydba@"%";
+			mysql> show grants for mydba@"%";
+		
+			mysql> revoke delete,update on  *.* from mydba@"%";
+			mysql> show grants for mydba@"%";
+
+
+			mysql> revoke all on  *.* from mydba@"%";
+			mysql> show grants for mydba@"%";
+
+			mysql> drop user  mydba@"%";
+
+	1.7 root密码
+		1.7.1 恢复数据库管理员本机登陆密码
+			1. 停止MySQL服务程序
+			   ]# systemctl  stop  mysqld
+			2. 跳过授权表启动MySQL服务程序
+			   ]# vim /etc/my.cnf
+				[mysqld]
+				skip-grant-tables
+				#validate_password_length=6
+				#validate_password_policy=0
+			   ：wq
+			   ]# systemctl  start  mysqld	
+			3. 修改root密码
+			   ]# mysql
+			   mysql> update mysql.user 
+		set  authentication_string=password("123qqq...A") 
+		where user="root" and host="localhost";
+			  mysql> flush privileges;
+			  mysql> exit
+			4. 正常方式重启MySQL服务程序
+			  ]# vim /etc/my.cnf
+                                [mysqld]
+                                #skip-grant-tables
+                        	validate_password_length=6
+				validate_password_policy=0        
+                           ：wq
+                           ]# systemctl  restart  mysqld
+			5、使用修改后的密码登陆
+			   ]# mysql -uroot -p123qqq...A
+				
+		1.7.2  重置root密码
+			 ]# mysqladmin  -uroot -p  password "123456"
+			 Enter password:123qqq...A
+
+			 ]# mysql -uroot -p123456
+			 mysql> 
+       
+       二 数据完全备份
+	2.1 数据备份相关概念 ？
+			数据备份方式
+			数据备份策略
+	物理备份 50
+		 ]# cp -r /var/lib/mysql /root/mysql.bak
+		 ]# scp -r /root/mysql.bak root@192.168.4.51:/tmp/
+
+	物理恢复 51
+	]# systemctl  stop mysqld
+  	]# ls /var/lib/mysql
+  	]# rm -rf /var/lib/mysql
+  	]# cp -r /tmp/mysql.bak /var/lib/mysql
+  	]# ls /var/lib/mysql
+  	]# ls -ld /var/lib/mysql
+  	]# chown  -R mysql:mysql /var/lib/mysql
+  	]# ls -ld /var/lib/mysql
+  	]# ls -l /var/lib/mysql
+  	]# systemctl  start mysqld
+  	]# mysql -uroot -p123456
+	mysql> show databases;
+	mysql> select  * from db3.user;
+	mysql> use db1;
+	mysql> show tables;
+				练习到16：30 
+
+	完全备份
+		命令
+		]#mysqldump   -uroot    -p密码    库名  >  目录/xxx.sql
+
+		192.68.4.50:
+		]# mysqldump -uroot -p123456 -A > allbak.sql
+  		]# ls *.sql
+  		]# mysqldump -uroot -p123456 db3 > db3.sql
+ 		]# ls *.sql
+  		]# vim db3.sql
+  		]# scp db3.sql  root@192.168.4.51:/tmp/
+  		]# scp db3.sql  root@192.168.4.52:/tmp/
+
+	完全恢复
+		命令
+		]#mysql  -uroot    -p密码    库名    <   目录/xxx.sql
+
+		192.168.4.52:
+		mysql>create database db3;
+ 
+		]#mysql  -uroot    -p密码 db3 < /tmp/db3.sql	
+		mysql> select  * from db3.user;
+
+							休息到 17：15 
+三、增量备份
+		3.1 binlog日志的使用
+			3.1.1 binlog日志介绍（binlog日志是什么）
+					
+
+			3.1.2 启用binlog日志 
+
+				]# vim /etc/my.cnf
+			   	[mysqld]
+			   	log-bin
+			   	server_id=50
+				:wq
+
+				]# systemctl restart mysqld
+
+
+				]# ls /var/lib/mysql/*-bin.*
+			3.1.3  手动生成新的日志文件：
+				 1. systemctl  restart  mysqld
+
+     				 2. mysql> flush logs;
+         				或
+        			     ]# mysql -uroot  -p密码  -e ‘flush log’
+      
+      				 3. mysqldump -uroot -p123456  --flush-logs db3  > /db3.sql
+
+			3.1.4 清理日志
+				删除指定编号之前的binlog日志文件
+				mysql>  purge  master  logs  to "host50-bin.000004";
+
+				删除所有binlog日志，重建新日志
+				mysql> reset master;
+
+			3.1.5 启用日志时，自定义日志文件存储目录和文件名
+			      ]# vim /etc/my.cnf				
+				[mysqld]
+					#log-bin
+					log-bin=/mylog/db50
+					server_id=50
+				:wq
+				]# mkdir /mylog
+				]# chown  mysql /mylog
+				]# systemctl restart mysqld
+				]# ls /mylog/db50.*
+
+	192.168.4.50:
+		]# mysqldump  -uroot -p123456 db3 user > /root/db3_user.sql
+		
+		mysql> show master status;
+		mysql> insert into db3.user(name)values("xixi");
+		mysql> insert into db3.user(name)values("xixi");
+		mysql> insert into db3.user(name)values("xixi");
+		mysql> insert into db3.user(name)values("xixi");
+		mysql> insert into db3.user(name)values("xixi");
+		mysql> show master status;
+
+		]# scp /mylog/db50.000001 root@192.168.4.51:/tmp/
+
+		3.2 恢复数据 (使用binlog日志恢复数据)
+			3.2.1 日志格式 （日志如何区分记录的多条SQL命令）
+				查看日志当前记录格式
+				 mysql> show variables like "%binlog%";
+				 mysql>show variables like "binlog_format";
+
+				 修改日志格式  10:32 
+				  ]# vim /etc/my.cnf
+					[mysqld]
+					binlog_format="mixed"
+				   :wq
+				   ]# systemctl  restart mysqld
+				   ]# mysql -uroot -p123456
+mysql> show variables like "binlog_format";
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| binlog_format | MIXED |
++---------------+-------+
+1 row in set (0.01 sec)
+
+mysql> show master status;
++-------------+----------+--------------+------------------+-------------------+
+| File        | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+----------+--------------+------------------+-------------------+
+| db50.000002 |      154 |              |                  |                   |
++-------------+----------+--------------+------------------+-------------------+
+1 row in set (0.00 sec)
+
+mysql>
+
+			日志如何区分记录的多条SQL命令
+			偏移量
+			时间点
+
+			命令]# mysqlbinlog 【选项】 日志文件 | mysql -uroot -p密码
+			选项
+			--start-datetime=“yyyy-mm-dd hh:mm:ss”	起始时间
+			--stop-datetime="yyyy-mm-dd hh:mm:ss"	结束时间
+			--start-position=数字	起始偏移量
+			--stop-position=数字 	结束偏移量		
+	192.168.4.50:
+		]# mysqlbinlog --start-position=1404 --stop-position=2094 /mylog/db50.000002 | mysql -uroot -p123456	
+
+	192.168.4.51:
+		]# mysqlbinlog /tmp/db50.000001
+		]# mysqlbinlog /tmp/db50.000001 | mysql -uroot  -p123456
+		mysql> select  count(*) from db3.user;
+		mysql> select  name from db3.user;
+
+		]# mysqlbinlog  --start-position=1087 --stop-position=2094 /tmp/db50.000002 | mysql -uroot -p123456
+       
+       
