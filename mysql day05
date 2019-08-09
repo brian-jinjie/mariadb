@@ -16,9 +16,31 @@ day 05
            -xtrabackup : c程序,支持InooDB/XtraDB
            -innobackuppex:以Perl脚本封装xtrabackup,还支持MyISAM
       
+      
+      
       3.3 innobackupex 命令
          --host  主机名
          --user  用户名
          --password 端口号
-         --databases 数据库名
+         --databases 数据库名(库1 库2 或库1.表)
          --no-timpstamp 不用日期命名备份文件存储的子目录名
+         --redo-only  日志合并
+         --apply-log  拷贝数据
+         --incremental 目录名    增量拷贝
+         --incremental-basedir=目录名 
+      
+      恢复数据步骤如下:
+        1.停止数据库服务器
+        ]# systemctl stop mysqld
+        2.清空数据库目录
+        ]# rm -rf /var/lib/mysql/*
+        3.准备恢复数据
+        ]# innobackupex --apply-log /root/allbak/
+        4.拷贝数据
+        ]# innobackupex --copy-back /root/allbak/
+        5.修改数据库目录的所有和组l
+        ]# chown -R mysql:mysql /var/lib/mysql/
+        6.启动服务
+        ]# systemctl restart mysqld
+        7.管理员登录查看数据
+        ]# 
