@@ -32,7 +32,7 @@ day 05
          --export 导出表信息
            import 导入表空间
       
-      恢复数据步骤如下:
+      完全恢复数据步骤如下:
         1.停止数据库服务器
         ]# systemctl stop mysqld
         2.清空数据库目录
@@ -47,6 +47,8 @@ day 05
         ]# systemctl restart mysqld
         7.管理员登录查看数据
         ]# 
+        
+        
 
 
 
