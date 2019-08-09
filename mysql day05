@@ -47,7 +47,26 @@ day 05
         ]# systemctl restart mysqld
         7.管理员登录查看数据
         ]# 
-        
+       在完全备份文件里,恢复单张表;具体操作如下:
+       
+删除表空间 mysql> alter table db3.user2 discard  tablespace;
+
+导出表信息     ]# innobackupex --apply-log --export  /allbak
+
+拷贝表信息文件到数据库目录下
+	       ]# cp /allbak/db3/user2.{cfg,exp,ibd} /var/lib/mysql/db3/
+修改表信息文件的所有者及组用户为mysql
+	       ]# chown mysql:mysql /var/lib/mysql/db3/user2.*
+
+导入表空间 mysql> alter  table db3.user2   import  tablespace; 
+		
+删除数据库目录下的表信息文件
+	     ]# rm -rf /var/lib/mysql/db3/user2.cfg
+             ]# rm -rf /var/lib/mysql/db3/user2.exp
+
+查看表记录 mysql> select  * from db3.user2;
+       
+
         
 
 
