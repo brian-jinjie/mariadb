@@ -7,3 +7,18 @@ day 05
   2.0 mysqldump 备份缺点
       2.1 效率较低,备份和还原速度慢,锁表
       2.2 备份过程中,数据插入和更新操作被阻塞
+
+  3.0 Xtra Backup 工具
+      3.1 一款强大的在线热备工具
+           -备份过程中不锁库表,适合生产环境
+           -由专业组织Percona提供(改进Mysql分支)
+      3.2  主要包含两个组件ji
+           -xtrabackup : c程序,支持InooDB/XtraDB
+           -innobackuppex:以Perl脚本封装xtrabackup,还支持MyISAM
+      
+      3.3 innobackupex 命令
+         --host  主机名
+         --user  用户名
+         --password 端口号
+         --databases 数据库名
+         --no-timpstamp 不用日期命名备份文件存储的子目录名
