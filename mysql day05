@@ -23,11 +23,14 @@ day 05
          --user  用户名
          --password 端口号
          --databases 数据库名(库1 库2 或库1.表)
-         --no-timpstamp 不用日期命名备份文件存储的子目录名
+         --no-timestamp 不用日期命名备份文件存储的子目录名
          --redo-only  日志合并
          --apply-log  拷贝数据
          --incremental 目录名    增量拷贝
          --incremental-basedir=目录名 
+         --incremental-dir=目录名
+         --export 导出表信息
+           import 导入表空间
       
       恢复数据步骤如下:
         1.停止数据库服务器
@@ -44,3 +47,6 @@ day 05
         ]# systemctl restart mysqld
         7.管理员登录查看数据
         ]# 
+
+
+
