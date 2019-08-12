@@ -14,9 +14,189 @@
      4.1 配置mysql 一主一从同步结构,要求如下:把52配置为51的从服务器
      4.2 配置代理服务器57
         4.2.1 安装提供服务的软件
+           ]# rpm -ivh maxscale-2.1.2-1.rhel.7.x86_64.rpm   #装包
+           ]# rpm -ql maxscale                              #查看安装路径
         4.2.2 修改服务的主配置文件
         4.2.3 配置数据库服务器
+[maxscale]
+threads=auto  线程个数
+
+[server1]  定义第1台数据库服务器
+type=server
+address=192.168.4.51
+port=3306
+protocol=MySQLBackend
+
+[server2] 定义第2台数据库服务器
+type=server
+address=192.168.4.52
+port=3306
+protocol=MySQLBackend
+
+[MySQL Monitor]  定义监控的服务器及监控用户
+type=monitor
+module=mysqlmon
+servers=server1, server2
+user=maxscalemon
+passwd=123qqq...A
+monitor_interval=10000
+
+
+[Read-Write Service] 定义读写分离服务及路由用户
+type=service
+router=readwritesplit
+servers=server1, server2
+user=maxscalerouter
+passwd=123qqq...A
+max_slave_connections=100%
+
+[MaxAdmin Service] 定义管理服务
+type=service
+router=cli
+
+[Read-Write Listener]  定义读写分离服务端口号
+type=listener
+service=Read-Write Service
+protocol=MySQLClient
+port=4006
+
+[MaxAdmin Listener] 定义管理服务端口号
+type=listener
+service=MaxAdmin Service
+protocol=maxscaled
+socket=default
+port=4016
         4.2.4 启动代理服务器
+[root@host57 ~]# maxscale -f /etc/maxscale.cnf
         4.2.5 查看代理服务器
-        
-    进程是独享资源,线程是共享资源
+
+   [root@host57 ~]# netstat  -utnlp  | grep  :4006
+tcp6       0      0 :::4006                 :::*                    LISTEN      3769/maxscale       
+[root@host57 ~]# 
+[root@host57 ~]# netstat  -utnlp  | grep  :4016
+tcp6       0      0 :::4016                 :::*                    LISTEN      3769/maxscale       
+[root@host57 ~]# 
+[root@host57 ~]# 
+[root@host57 ~]# netstat  -utnlp  | grep  maxscale
+tcp6       0      0 :::4006                 :::*                    LISTEN      3769/maxscale       
+tcp6       0      0 :::4016                 :::*                    LISTEN      3769/maxscale       
+[root@host57 ~]# 
+[root@host57 ~]# ps -C maxscale
+  PID TTY          TIME CMD
+ 3769 ?        00:00:00 maxscale
+[root@host57 ~]# 
+[root@host57 ~]# ls /var/log/maxscale/
+maxscale.log
+   
+   
+关闭maxscale服务: killall -9  maxscale
+     
+在代理服务器本机 访问管理服务查看监控信息:        
+[root@host57 ~]# maxadmin  -uadmin -pmariadb -P4016
+MaxScale> list servers
+Servers.
+-------------------+-----------------+-------+-------------+--------------------
+Server             | Address         | Port  | Connections | Status              
+-------------------+-----------------+-------+-------------+--------------------
+server1            | 192.168.4.51    |  3306 |           0 | Master, Running
+server2            | 192.168.4.52    |  3306 |           0 | Slave, Running
+-------------------+-----------------+-------+-------------+--------------------
+
+ 进程是独享资源,线程是共享资源
+MaxScale> exit排错 (查看日志文件获取报错信息)
+]# tail  -f  /var/log/maxscale/maxscale.log
+		killall -9  maxscale
+		rm -rf  /etc/maxscale.cnf
+			 		
+
+		1.6.6 测试配置  练习到 15:58
+			1 在主服务器上添加访问数据连接用户
+				create  database gamedb;
+				create table gamedb.a(id int);
+				grant select ,insert on gamedb.* to yaya66@"%" identified by "123qqq...A";
+			2 客户端连接代理服务57 访问数据
+			]# mysql -h192.168.4.57 -P4006 -uyaya66 -p123qqq...A
+			mysql> select  * from gamedb.a;
+			mysql> insert into gamedb.a values(99);
+			mysql> select  * from gamedb.a;
+mysql> select  * from gamedb.a;
+Empty set (0.00 sec)
+
+mysql> 
+mysql> insert into gamedb.a values(99);
+Query OK, 1 row affected (0.06 sec)
+mysql> 
+mysql> select  * from gamedb.a;
++------+
+| id   |
++------+
+|   99 |
++------+
+1 row in set (0.00 sec)
+			3 验证57主机的数据读写分离功能   16:35
+				3.1 在从服务器添加新纪录
+					insert into gamedb.values(52);
+					select  * from mysql> select  * from gamedb.a;
++------+
+| id   |
++------+
+|   99 |
+|   52 |
++------+
+				   在主服务器查看记录
+                                        select  * from mysql> select  * from gamedb.a;
++------+
+| id   |
++------+
+|   99 |
++------+ 		       3.2  客户端访问代理服务器57 访问数据
+				 ]# mysql -h192.168.4.57 -P4006 -uyaya66 -p123qqq...A
+select  * from mysql> select  * from gamedb.a;
++------+
+| id   |
++------+
+|   99 |
+|   52 |
++------+
+			
+二、多实例服务 
+	2.1 相关概念 ？
+	  -在一台物理主机上运行多个数据库服务
+	2.2 配置mysql多实例
+克隆1台新的虚拟机 配置ip地址为 192.168.4.56  不需要安装mysql数据库服务
+
+	        ]# systemctl  stop mysqld  
+		]# mv /etc/my.cnf  /root/
+
+		1 安装软件  休息到 17：10  
+]# tar -zxvf mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz
+]# ls 
+Desktop  mysql-5.7.20-linux-glibc2.12-x86_64  mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz
+[root@host56 ~]# 
+[root@host56 ~]# mv mysql-5.7.20-linux-glibc2.12-x86_64 /usr/local/mysql
+[root@host56 ~]# 
+[root@host56 ~]# ls /usr/local/mysql
+bin  COPYING  docs  include  lib  man  README  share  support-files
+[root@host56 ~]# 
+[root@host56 ~]# 
+[root@host56 ~]# ls /usr/local/mysql/bin/
+innochecksum                mysql_config_editor        mysqlshow
+lz4_decompress              mysqld                     mysqlslap
+myisamchk                   mysqld-debug               mysql_ssl_rsa_setup
+myisam_ftdump               mysqld_multi               mysqltest_embedded
+myisamlog                   mysqld_safe                mysql_tzinfo_to_sql
+myisampack                  mysqldump                  mysql_upgrade
+my_print_defaults           mysqldumpslow              mysqlxtest
+mysql                       mysql_embedded             perror
+mysqladmin                  mysqlimport                replace
+mysqlbinlog                 mysql_install_db           resolveip
+mysqlcheck                  mysql_plugin               resolve_stack_dump
+mysql_client_test_embedded  mysqlpump                  zlib_decompress
+mysql_config                mysql_secure_installation
+[root@host56 ~]#
+
+ 
+ 
+ 
+ 
+ 
