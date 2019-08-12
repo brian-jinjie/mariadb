@@ -1,0 +1,272 @@
+一、 MySQL 主从同步
+	
+	配置主服务器192.168.4.51
+		]# vim /etc/my.cnf
+		 [mysqld]
+		 log-bin=db51
+		 server_id=51
+		:wq
+		]# systemctl restart mysqld
+		]#ls /var/lib/mysql/db51.*
+		
+		]# mysql -uroot -p123456
+		mysql> grant replication  slave on *.*  
+			   to  repluser@"%" identified by "123qqq...A";
+
+
+		mysql> show  master status;
+
+
+       配置从服务器192.168.4.52
+		]# vim /etc/my.cnf
+			[mysqld]
+			server_id=52
+		   :wq
+		]# systemctl restart mysqld
+	与主服务器数据一致
+	51
+        ]# mysqldump -uroot -p123456 --master-data  db3  > /db3.sql		     
+	]# scp  /db3.sql  root@192.168.4.52:/root/
+	52
+	mysql> create database db3;
+	]# mysql -uroot -p密码 < /root/db3.sql	
+	]# vim  /root/db3.sql   查看备份数据对应的日志名及偏移量编号
+	]# mysql -uroot -p123qqq...A
+	mysql> change master to master_host="192.168.4.51",
+		master_user="repluser",master_password="123qqq...A",
+		master_log_file="db51.000001",master_log_pos=701;
+	mysql> start slave;
+	mysql> show slave status\G;
+		 Master_Host: 192.168.4.51
+		 Slave_IO_Running: Yes
+                 Slave_SQL_Running: Yes
+
+	测试配置：
+		方法1 
+			51的数据库管理员在本机创建新数据库和表 插入记录
+				mysql> create table db3.user4(name char(10));
+				mysql> create database db4 ;
+				mysql> create table db4.a(id int);
+				mysql> insert into db4.a values(99);
+				mysql> insert into db4.a values(99);
+				mysql> insert into db4.a values(99);
+				mysql> insert into db3.user2 values(99,"jerry");				
+			52的数据库管理员在本机查看时可以看到同样的库和表及记录
+				mysql> select  * from db3.user2;
+				mysql> select  * from db4.a;
+
+		方法2
+			51的数据库管理员在本机,做用户授权
+			   mysql> grant select,insert on  *.*  to  
+					yaya99@"%"  identified by "123qqq...A";
+
+			50连接主服务器51存和查数据
+			  ]# mysql -h192.168.4.51 -uyaya99 -p123qqq...A
+			  mysql> insert into db3.user4 values("bob"),("tom"),("lucy");	
+			
+			51/52 的数据库管理员在本机能够查看到新插入的数据
+			  mysql> select  * from  db3.user4;
+
+
+		练习到 15：40 
+
+把从数据库恢复为独立的数据库服务器
+		]# rm -rf master.info  relay-log.info  host52-relay-bin.* ^C
+		]# systemctl restart mysqld
+
+
+查看报错信息 mysql> show slave status\G;
+Last_IO_Error: Got fatal error 1236 from master when reading data from binary log: 'Misconfigured master - master server_id is 0'
+
+
+Last_SQL_Error: Error 'Can't create database 'db3'; database exists' on query. Default database: 'db3'. Query: 'create database db3'
+
+
+Last_IO_Error: error connecting to master 'repluser@192.168.4.51:3306' - retry-time: 60  retries: 136
+
+Last_Error: Error 'Operation ALTER USER failed for 'repluser'@'%'' on query. Default database: ''. Query: 'ALTER USER 'repluser'@'%' IDENTIFIED WITH 'mysql_native_password' AS '*C608BE758B104C08A668562152C943506CFD9BE6''
+
+
+Last_IO_Error: Fatal error: The slave I/O thread stops because master and slave have equal MySQL server UUIDs; these UUIDs must be different for replication to work.
+
+
+ Last_IO_Error: Got fatal error 1236 from master when reading data from binary log: 'Client requested master to start replication from position > file size'
+
+
+stop slave;
+start slave;
+show slave status\G;
+			练习到 15:00
+
+二、主从同步模式
+		2.1 结构类型？
+
+		2.2 配置一主多从同步结构
+		    要求：把数据库服务器192.168.4.53 也配置为51的从服务器
+		
+	            数据库服务器192.168.4.53的配置如下：
+			1 验证主服务器51的授权用户
+				]# mysql -h192.168.4.51 -urepluser -p123qqq...A
+				mysql> exit;
+			2 指定server_id 
+				]# vim /etc/my.cnf
+				 [mysqld]
+				 server_id=53
+			        :wq
+				]# systemctl  restart mysqld
+
+			3 确保与主服务器数据一致
+				51]# ]# mysqldump -uroot -p123456 --master-data -B db3  db4 > /root/dbtwo.sql
+				51]# scp  /root/dbtwo.sql  root@192.168.4.53:/root/
+
+				53]# mysql -uroot -p123qqq...A  < /root/dbtwo.sql
+				53]# grep  -i db51  /root/dbtwo.sql
+练习到16：31
+			4 指定主服务器信息
+				mysql> change master to master_host="192.168.4.51",
+					master_user="repluser",
+    					master_password="123qqq...A",
+					master_log_file="db51.000001",
+    					master_log_pos=3855;
+
+			5 启动slave程序  mysql> start slave;
+
+			6 查看状态信息   mysql> show slave status\G;
+					 Master_Host: 192.168.4.51
+					 Slave_IO_Running: Yes
+            				 Slave_SQL_Running: Yes
+	
+			7 在客户端50 测试配置
+				50 访问主服务器51 
+				    host50 ~]# mysql -h192.168.4.51 -uyaya99 -p123qqq...A
+mysql> mysql> insert into db3.user4 values("jerry");
+mysql> insert into db3.user4 values("alice");
+mysql> insert into db3.user4 values("jack");
+mysql> select  * from db3.user4;
+				53 数据库管理员登陆可以查看到新插入的数据
+mysql> select  * from db3.user4;
++-------+
+| name  |
++-------+
+| bob   |
+| tom   |
+| jerry |
+| alice |
+| jack  |
++-------+
+	 	2.3 配置主从从结构
+		    2.3.1 配置主服务器53
+			]# vim /etc/my.cnf
+			   [mysqld]
+				server_id=53
+				log-bin=db53
+			   :wq
+	
+			]# systemctl  restart mysqld
+			
+			]# mysql -uroot -p密码
+			mysql> grant replication slave on  *.* 
+				to repluser@"%" identified by "123qqq...A";
+
+			mysql> show  master status;
++-------------+----------+--------------+------------------+-------------------+
+| File        | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+----------+--------------+------------------+-------------------+
+| db53.000001 |      441 |              |                  |                   |
++-------------+----------+--------------+------------------+-------------------+
+
+		    2.3.2 配置从服务器54
+
+			]# vim /etc/my.cnf
+				[mysqld]
+				server_id=54
+				log-bin=db54
+				log_slave_updates
+			:wq
+			]# systemctl  restart mysqld
+
+			]# mysql -uroot -p密码
+mysql> grant replication slave on  *.*  to  repluser2@"%" identified by "123qqq...A";
+Query OK, 0 rows affected, 1 warning (0.02 sec)
+
+mysql> show master status;
++-------------+----------+--------------+------------------+-------------------+
+| File        | Position | Binlog_Do_DB | Binlog_Ignore_DB | Executed_Gtid_Set |
++-------------+----------+--------------+------------------+-------------------+
+| db54.000001 |      442 |              |                  |                   |
++-------------+----------+--------------+------------------+-------------------+
+1 row in set (0.00 sec)
+
+mysql> change master to  master_host="192.168.4.53",master_user="repluser",
+    -> master_password="123qqq...A",master_log_file="db53.000001",master_log_pos=441;
+Query OK, 0 rows affected, 2 warnings (0.22 sec)
+
+mysql> start slave;
+Query OK, 0 rows affected (0.03 sec)
+
+mysql> show slave status\G;
+		 Slave_IO_Running: Yes
+            	Slave_SQL_Running: Yes
+		Master_Host: 192.168.4.53
+
+			2.3.3 配置从服务器55
+			]# vim /etc/my.cnf
+				[mysqld]
+ 				server_id=55
+			:wq
+
+			]# systemctl  restart mysqld
+			]# mysql  -uroot -p密码
+mysql> change master to  master_host="192.168.4.54",master_user="repluser2",
+master_password="123qqq...A",master_log_file="db54.000001",master_log_pos=442;
+
+mysql> start slave ;
+mysql> show slave status\G; 
+	    Master_Host: 192.168.4.54
+	    Slave_IO_Running: Yes
+            Slave_SQL_Running: Yes
+
+			2.3.4 测试配置
+				在主服务器本机创建新库新表插入记录
+				在2台从服务器本机可以查看到同样的库表及记录
+
+			53 mysql>
+			   create database bbsdb;
+			   create table bbsdb.a(id int);
+			   insert into bbsdb.a values(99);
+
+			54/55 mysql>
+			   select  * from bbsdb.a;
+
+		mysql主从同步结构模式
+			一主一从   一主多从  主从从  主主结构
+
+	2.4 复制模式(mysql主从同步复制模式)
+		2.4.1 模式分类
+		异步复制模式（默认）
+       -主库执行完一次事务后,立即将结果返给客户端,并不关心从库是否已经接收并处理.
+		全同步复制模式
+       -当主库执行完一次事务,且所有从库都执行了该事务后才将结果返回给客户端.
+		半同步复制模式
+       -介于异步复制和全同步复制之间.
+       -主库在执行完一次事务后,等待至少一个从库接收到并写到relay log中才将结果返回给客户端.
+       
+     2.4.2
+       查看是否允许动态加载模块
+       -默认允许
+       msyql > show variables like 'have_dynamic_loading';
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
+       
