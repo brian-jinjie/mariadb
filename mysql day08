@@ -1,0 +1,538 @@
+                            数据分片概述
+  1. 分库分表
+        1.1什么是分库分表?
+         -将存放在一台数据库服务器中的数据,按照特定方式进行拆分,分散存放到多台数据库服务器中,以达到分散单台服务
+         器的负载效果.
+        
+         1.2 分割方式:水平分割\垂直分割
+             -水平分割
+               横向切分,按照表中的指定字段的分片规则,将表记录按行切分,分散存储到多个数据库中.
+             -垂直切割
+               纵向切分,将单个数据库的多个表按业务类型分类,分散存储到不同的数据库.
+   2.Mycat 介绍
+         2.1 mysql 是基于Java的分布式数据库系统中间件,为高并发环境的分布式存储提供解决方案
+            -适合数据大量写入的存储需求
+            -支持Mysql Oracle Sqlserser Mongobd等
+            -提供数据读写分离服务
+            -提供书库分片服务
+            -基于阿里巴巴Cobar进行研发的开源软件
+          
+          2.2 分片规则
+              mycat 支持10种分片规则
+              1.枚举法 sharding-by-intfile
+              2.固定分片
+              
+          2.3 工作过程
+               当mycat 收到一个SQL命令时
+               1.解析SQL命令涉及到的表
+               2.然后看对表的配置,如果有分片规则,则获取SQL命令里分片字段的值,并匹配分片函数,获得分片列表
+               3.
+              
+          2.4 部署Mycat服务
+               
+               
+               2.4.1 安装配置java环境软件包
+                 [root@pc56 ~]# yum -y install java-1.8.0-openjdk
+              拓展:
+                -查看java信息: 
+                  [root@pc56 ~]# java -version
+                2.4.2 
+                  安装mycat服务软件包
+                  [root@pc56 ~]# tar -xvf Mycat-server-1.6-RELEASE-20161028204710-linux.tar.gz
+                  [root@pc56 ~]# mv /root/mycat/ /usr/local/mycat   //mysql目录路径
+                 目录结构
+                 ls /usr/local/mycat
+                 -bin       //mycat 命令
+                 -catlet    //拓展功能
+                 -conf      //配置文件(
+                     server.xml schema.xml rule.xml 其他文件 )
+                 -lib       //mycat使用的jar包
+                 -logs      //mycat启动日志和运行日志
+                 -wrapper.log  //mycat 服务启动日志
+                 -mycat.log    //记录SQL脚步执行后的报错内容
+                 
+                 
+                 2.4.3修改配置文件
+                    1.定义连接用户和逻辑库名
+                     [root@pc56 mycat]# vim /usr/local/mycat/conf/server.xml 
+                     ....
+                     
+                     
+                     .... 
+                    2.数据分片配置
+                    [root@mycat56 conf]# wc -l schema.xml 
+                    77 /root/schema.xml
+                    ]# sed -i  '56,77d' schema.xml
+                    ]# sed -i  '39,42d' schema.xml
+                    ]# sed -i  '16,18d' schema.xml
+                    [root@mycat56 conf]# wc -l schema.xml 
+                    48 schema.xml]# vim /usr/local/mycat/conf/schema.xml
+                    <mycat  >
+	             <schema >  定义数据分片存储的表
+	           	<table> ...</table>
+		         <table    />
+	              </schema>
+	             <datanode  ...... /> 定义数据库主机名及存储数据的库
+                     <datahost>......</datahost> 定义数据库服务器ip
+                        </myscat>
+                    3 配置数据库服器（根据配置文件的设置，配置数据库服务器）
+				3.1	创建存储数据库
+                        host55 ~]# mysql -uroot -p123qqq...A -e  "create database db3"				
+                        host54 ~]# mysql -uroot -p123qqq...A -e  "create database db2"				
+                        host53 ~]# mysql -uroot -p123qqq...A -e  "create database db1"				
+                    用户授权
+                        host53mysql> grant all on  *.* to adminplj@"%" identified by "123qqq...A" ;
+                        host54mysql> grant all on  *.* to adminplj@"%" identified by "123qqq...A" ;
+                        host55mysql> grant all on  *.* to adminplj@"%" identified by "123qqq...A" ;
+                    4.启动服务
+                    ]# /usr/local/mycat/bin/mycat  start	
+                        [root@mycat56 conf]# netstat  -utnlp  | grep  :8066
+                        [root@mycat56 conf]# 
+                        [root@mycat56 conf]# ls /usr/local/mycat/logs/
+                        [root@mycat56 conf]# 
+
+                        [root@mycat56 conf]# /usr/local/mycat/bin/mycat  start
+                        Starting Mycat-server...
+                        [root@mycat56 conf]# 
+                    5.查看服务状态
+                    4.3 查看状态
+                        [root@mycat56 conf]# netstat  -utnlp  | grep  :8066
+                        tcp6       0      0 :::8066                 :::*                    LISTEN      1125/java           
+                        [root@mycat56 conf]# 
+                        [root@mycat56 conf]# ls /usr/local/mycat/logs/
+                        mycat.log  mycat.pid  wrapper.log
+
+                        [root@mycat56 conf]# 
+                        [root@mycat56 conf]# ps -C java
+                        PID TTY          TIME CMD
+                        1125 ?        00:00:01 java
+                 5 测试配置
+				5.1 客户端连接分片服务器访问数据
+				]# mysql -h192.168.4.56 -P8066 -uroot -p123456
+[root@host50 ~]# mysql -h192.168.4.56 -P8066 -uroot -p123456
+mysql: [Warning] Using a password on the command line interface can be insecure.
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 1
+Server version: 5.6.29-mycat-1.6-RELEASE-20161028204710 MyCat Server (OpenCloundDB)
+
+Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> 
+mysql> show databases;
++----------+
+| DATABASE |
++----------+
+| TESTDB   |
++----------+
+1 row in set (0.01 sec)
+
+mysql> use TESTDB;
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+mysql> show tables;
++------------------+
+| Tables in TESTDB |
++------------------+
+| company          |
+| customer         |
+| customer_addr    |
+| employee         |
+| goods            |
+| hotnews          |
+| orders           |
+| order_items      |
+| travelrecord     |
++------------------+
+9 rows in set (0.00 sec)
+
+mysql> desc company;
+ERROR 1146 (42S02): Table 'db3.company' doesn't exist
+mysql> 
+			
+	3. 存储数据（sharding-by-intfile）
+		3.1 修改算法配置文件
+]# vim /usr/local/mycat/conf/partition-hash-int.txt
+                        10000=0    //数据存储到dn1库里
+                        10010=1	  //数据存储到dn2库里
+	           	10020=2    //数据存储到dn3库里
+			
+:wq
+		3.2 重启mycat服务
+[root@mycat56 conf]# /usr/local/mycat/bin/mycat  stop
+Stopping Mycat-server...
+Stopped Mycat-server.
+[root@mycat56 conf]# netstat -utnlp  | grep  :8066
+[root@mycat56 conf]# 
+[root@mycat56 conf]# /usr/local/mycat/bin/mycat  start
+Starting Mycat-server...
+[root@mycat56 conf]# 
+[root@mycat56 conf]# netstat -utnlp  | grep  :8066
+tcp6       0      0 :::8066                 :::*                    LISTEN      1364/java           
+[root@mycat56 conf]# 
+
+		3.3 客户端连接mycat服务器，测试分片存储
+			建表
+]# mysql -h192.168.4.56 -P8066 -uroot -p123456
+mysql> use TESTDB;
+mysql> create table  employee( ID int primary key , sharding_id int,
+    -> name char(15) , age  int );
+Query OK, 0 rows affected (0.68 sec)
+
+mysql> desc employee;
++-------------+----------+------+-----+---------+-------+
+| Field       | Type     | Null | Key | Default | Extra |
++-------------+----------+------+-----+---------+-------+
+| ID          | int(11)  | NO   | PRI | NULL    |       |
+| sharding_id | int(11)  | YES  |     | NULL    |       |
+| name        | char(15) | YES  |     | NULL    |       |
+| age         | int(11)  | YES  |     | NULL    |       |
++-------------+----------+------+-----+---------+-------+
+4 rows in set (0.00 sec)
+
+mysql> 
+
+mysql> mysql> show tables; (53/54/55)
++---------------+
+| Tables_in_db2 |
++---------------+
+| employee      |
++---------------+
+1 row in set (0.00 sec)
+
+mysql> 
+
+			插入记录
+
+
+
+Query OK, 3 rows affected (0.07 sec)
+Records: 3  Duplicates: 0  Warnings: 0
+
+insert into employee(ID,sharding_id,name,age) values  (1,10000,"bob2",19), (2,10010,"tom2",21), (3,10020,"lucy2",16);
+
+
+mysql> select  * from employee;
++----+-------------+------+------+
+| ID | sharding_id | name | age  |
++----+-------------+------+------+
+|  1 |       10000 | bob  |   19 |
+|  2 |       10010 | tom  |   21 |
+|  3 |       10020 | lucy |   16 |
++----+-------------+------+------+
+3 rows in set (0.06 sec)
+
+
+mysql> insert into employee(ID,sharding_id,name,age)
+values 
+(4,10000,"bob2",19),
+(5,10000,"tom2",21),
+(6,10000,"lucy2",16);
+
+> 
+mysql> select  * from employee;                                              +----+-------------+-------+------+
+| ID | sharding_id | name  | age  |
++----+-------------+-------+------+
+|  1 |       10000 | bob   |   19 |
+|  4 |       10000 | bob2  |   19 |
+|  5 |       10000 | tom2  |   21 |
+|  6 |       10000 | lucy2 |   16 |
+|  3 |       10020 | lucy  |   16 |
+|  2 |       10010 | tom   |   21 |
++----+-------------+-------+------+
+6 rows in set (0.00 sec)
+
+mysql> 
+
+mysql> mysql> select  * from db1.employee; (192.168.4.51)
++----+-------------+-------+------+
+| ID | sharding_id | name  | age  |
++----+-------------+-------+------+
+|  1 |       10000 | bob   |   19 |
+|  4 |       10000 | bob2  |   19 |
+|  5 |       10000 | tom2  |   21 |
+|  6 |       10000 | lucy2 |   16 |
++----+-------------+-------+------+
+4 rows in set (0.00 sec)
+
+mysql>
+			求模法分片规则的使用 mod-long
+				根据字段值与设定的数字求模结果存储数据
+	]#vim  schema.xml
+	<table name="hotnews"  dataNode="dn1,dn2,dn3"
+                           rule="mod-long" />
+
+	:wq
+
+	]#vim rule.xml
+	<tableRule name="mod-long">
+                <rule>
+                        <columns>num</columns>
+                        <algorithm>mod-long</algorithm>
+                </rule>
+        </tableRule>
+
+	<function name="mod-long" class="io.mycat.route.function.PartitionByMod">
+                <!-- how many data nodes -->
+                <property name="count">3</property>
+        </function>
+	:wq
+
+
+[root@mycat56 ~]# /usr/local/mycat/bin/mycat  stop
+Stopping Mycat-server...
+Stopped Mycat-server.
+[root@mycat56 ~]# 
+[root@mycat56 ~]# netstat -utnlp  | grep  :8066
+[root@mycat56 ~]# ps -C java
+  PID TTY          TIME CMD
+[root@mycat56 ~]# 
+[root@mycat56 ~]# /usr/local/mycat/bin/mycat  start
+Starting Mycat-server...
+[root@mycat56 ~]# 
+[root@mycat56 ~]# netstat -utnlp  | grep  :8066
+tcp6       0      0 :::8066                 :::*                    LISTEN      2253/java           
+[root@mycat56 ~]# ps -C java
+  PID TTY          TIME CMD
+ 2253 ?        00:00:01 java
+[root@mycat56 ~]# 
+		在客户端验证求模分片规则
+
+]# mysql  -h192.168.4.56 -P8066 -uroot -p123456
+mysql> use TESTDB;
+mysql> desc hotnews;
+ERROR 1146 (42S02): Table 'db2.hotnews' doesn't exist     休息到10：00  
+
+mysql> create table hotnews(num int ,title char(30),comment char(200));
+Query OK, 0 rows affected (0.79 sec)
+
+mysql> desc hotnews;
++---------+-----------+------+-----+---------+-------+
+| Field   | Type      | Null | Key | Default | Extra |
++---------+-----------+------+-----+---------+-------+
+| num     | int(11)   | YES  |     | NULL    |       |
+| title   | char(30)  | YES  |     | NULL    |       |
+| comment | char(200) | YES  |     | NULL    |       |
++---------+-----------+------+-----+---------+-------+
+3 rows in set (0.00 sec)
+mysql> insert into hotnews(num,title,comment)values(9,"sc","xxxxx");
+Query OK, 1 row affected (0.11 sec)
+
+mysql> insert into hotnews(num,title,comment)values(10,"xx","haha");
+Query OK, 1 row affected (0.05 sec)
+
+mysql> insert into hotnews(num,title,comment)values(11,"yy","zz");
+Query OK, 1 row affected (0.03 sec)
+
+mysql> select  * from hotnews;
++------+-------+---------+
+| num  | title | comment |
++------+-------+---------+
+|   11 | yy    | zz      |
+|   10 | xx    | haha    |
+|    9 | sc    | xxxxx   |
++------+-------+---------+
+3 rows in set (0.01 sec)
+
+mysql> 
+ql>  select  * from db1.hotnews;
++------+-------+---------+
+| num  | title | comment |
++------+-------+---------+
+|    9 | sc    | xxxxx   |
++------+-------+---------+
+1 row in set (0.00 sec)
+
+mysql> 
+mysql>  select  * from db2.hotnews;
++------+-------+---------+
+| num  | title | comment |
++------+-------+---------+
+|   10 | xx    | haha    |
++------+-------+---------+
+1 row in set (0.00 sec)
+
+mysql> 
+mysql> select  * from db3.hotnews;
++------+-------+---------+
+| num  | title | comment |
++------+-------+---------+
+|   11 | yy    | zz      |
++------+-------+---------+
+1 row in set (0.00 sec)
+
+mysql> 
+			添加新库新表
+			
+[root@mycat56 ~]# vim /usr/local/mycat/conf/server.xml 
+<user name="root">
+                <property name="password">123456</property>
+                <property name="schemas">TESTDB,BBSDB</property>
+
+:wq
+
+[root@mycat56 ~]# vim /usr/local/mycat/conf/schema.xml 
+<mycat:schema xmlns:mycat="http://io.mycat/">
+        <schema name="BBSDB" checkSQLschema="false" sqlMaxLimit="100">
+          <table name="company" primaryKey="ID" type="global" dataNode="dn1,dn2,dn3" />
+
+          <table name="employee" primaryKey="ID" dataNode="dn1,dn2,dn3"
+                           rule="sharding-by-intfile" />
+        </schema>
+
+:wq
+
+[root@mycat56 ~]# /usr/local/mycat/bin/mycat  stop
+Stopping Mycat-server...
+Stopped Mycat-server.
+[root@mycat56 ~]# ps -C java
+  PID TTY          TIME CMD
+[root@mycat56 ~]# 
+[root@mycat56 ~]# netstat -utnlp  | grep  :8066
+[root@mycat56 ~]# 
+[root@mycat56 ~]# /usr/local/mycat/bin/mycat  start
+Starting Mycat-server...
+[root@mycat56 ~]# 
+[root@mycat56 ~]# netstat -utnlp  | grep  :8066
+tcp6       0      0 :::8066                 :::*                    LISTEN      2496/java           
+[root@mycat56 ~]# 
+[root@mycat56 ~]# ps -C mycat
+  PID TTY          TIME CMD
+[root@mycat56 ~]# ps -C java
+  PID TTY          TIME CMD
+ 2496 ?        00:00:01 java
+[root@mycat56 ~]# 
+			客户端连接mycat服务器 访问数据
+
+[root@host50 ~]# mysql -h192.168.4.56 -P8066 -uroot -p123456
+mysql: [Warning] Using a password on the command line interface can be insecure.
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 1
+Server version: 5.6.29-mycat-1.6-RELEASE-20161028204710 MyCat Server (OpenCloundDB)
+
+Copyright (c) 2000, 2016, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> show databases;
++----------+
+| DATABASE |
++----------+
+| BBSDB    |
+| TESTDB   |
++----------+
+2 rows in set (0.00 sec)
+
+mysql> use BBSDB;
+Reading table information for completion of table and column names
+You can turn off this feature to get a quicker startup with -A
+
+Database changed
+mysql> show tables;
++-----------------+
+| Tables in BBSDB |
++-----------------+
+| company         |
+| employee        |
++-----------------+
+2 rows in set (0.00 sec)
+mysql> desc company;
+ERROR 1146 (42S02): Table 'db1.company' doesn't exist
+mysql> 
+mysql> create table company(ID int primary key,name char(50),addr char(50));
+Query OK, 0 rows affected (1.01 sec)
+
+mysql> desc company;
++-------+----------+------+-----+---------+-------+
+| Field | Type     | Null | Key | Default | Extra |
++-------+----------+------+-----+---------+-------+
+| ID    | int(11)  | NO   | PRI | NULL    |       |
+| name  | char(50) | YES  |     | NULL    |       |
+| addr  | char(50) | YES  |     | NULL    |       |
++-------+----------+------+-----+---------+-------+
+3 rows in set (0.00 sec)
+
+mysql> insert into company(ID,name,addr)values(1,"tarena","beijing");
+Query OK, 1 row affected (0.10 sec)
+
+mysql> insert into company(ID,name,addr)values(2,"tmall","beijing");
+Query OK, 1 row affected (0.15 sec)
+
+mysql> insert into company(ID,name,addr)values(3,"sina","beijing");
+Query OK, 1 row affected (0.13 sec)
+
+mysql> select  * from company;
++----+--------+---------+
+| ID | name   | addr    |
++----+--------+---------+
+|  1 | tarena | beijing |
+|  2 | tmall  | beijing |
+|  3 | sina   | beijing |
++----+--------+---------+
+3 rows in set (0.04 sec)
+
+mysql> 
+
+在数据库服务器本机查看
+
+mysql> desc db1.company;
++-------+----------+------+-----+---------+-------+
+| Field | Type     | Null | Key | Default | Extra |
++-------+----------+------+-----+---------+-------+
+| ID    | int(11)  | NO   | PRI | NULL    |       |
+| name  | char(50) | YES  |     | NULL    |       |
+| addr  | char(50) | YES  |     | NULL    |       |
++-------+----------+------+-----+---------+-------+
+3 rows in set (0.00 sec)
+
+mysql> select  * from db1.company;
++----+--------+---------+
+| ID | name   | addr    |
++----+--------+---------+
+|  1 | tarena | beijing |
+|  2 | tmall  | beijing |
+|  3 | sina   | beijing |
++----+--------+---------+
+3 rows in set (0.00 sec)
+
+mysql> 
+
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                 
+                
