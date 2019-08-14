@@ -1,0 +1,97 @@
+集群
+
+集群分类
+     LB 负载均衡集群
+     HA 高可用集群
+     HPC 高性能计算集群
+
+集群软件:lvs | nginx | Haproxy | keepalived
+
+1.1 MHA简介
+    -是一套优秀的实现MySQL高可用的解决方案
+    -数据库的自动故障切换操作能做到0~30秒之内完成
+    -MHA能确保在故障切换过程中最大限度保证数据一致性,以达到真正意义上的高可用.
+ 
+ 1.2 MHA组成
+      MHA Manager(管理节点)
+      -管理所有数据库服务器
+      -可以单独部署在一台独立的机器上
+      -也可以部署在某台数据库服务器上
+      
+      MHA Node(数据节点)
+       -存储数据的Mysql服务器
+       -运行在每台Mysql服务器上
+       
+ 1.3 MHA集群架构
+     一个MHA manager管理阶段
+     
+     
+ ##################################################################    
+ 2.
+    部署MHA集群
+     2.1步骤一： 配置ssh免密登录
+        1）配置数据库服务器192.168.4.51无密码登录52和53服务器(在52和53做类似无密码验证操作)
+        51]# ssh-keygen -f /root/.ssh/id_rad -N ''
+        51]# for i in  52 53; do ssh-copy-id 192.168.4.$i; done 环境准备
+        2)配置数据库服务器192.168.4.57无密码登录51\52和53服务器(在52和53做类似无密码验证操作)
+        57]# ssh-keygen -f /root/.ssh/id_rad -N ''
+        57]# for i in 51 52 53; do ssh-copy-id 192.168.4.$i; done     
+     2.2 配置管理主机 57
+        [root@mgm57 ~]# cd mha-soft-student/
+[root@mgm57 mha-soft-student]#
+[root@mgm57 mha-soft-student]# rpm -ivh  mha4mysql-node-0.56-0.el6.noarch.rpm//安装mha-node软件包
+准备中...                          ################################# [100%]
+正在升级/安装...
+   1:mha4mysql-node-0.56-0.el6        ################################# [100%]
+[root@mgm57 mha-soft-student]#
+[root@mgm57 mha-soft-student]# rpm -qa | grep  mha //查看是否安装成功
+mha4mysql-node-0.56-0.el6.noarch
+[root@mgm57 mha-soft-student]#
+[root@mgm57 mha-soft-student]# tar -zxvf mha4mysql-manager-0.56.tar.gz //解压mha-manager软件包
+mha4mysql-manager-0.56/
+mha4mysql-manager-0.56/debian/
+mha4mysql-manager-0.56/debian/control
+mha4mysql-manager-0.56/debian/copyright
+……
+……
+[root@mgm57 mha-soft-student]# ls  
+app1.cnf            mha4mysql-manager-0.56        
+mha4mysql-node-0.56-0.el6.noarch.rpm
+master_ip_failover  mha4mysql-manager-0.56.tar.gz
+[root@mgm57 mha-soft-student]# cd mha4mysql-manager-0.56  //进入源码目录
+[root@mgm57 mha4mysql-manager-0.56]# ls //查看文件列表
+AUTHORS  COPYING  inc  Makefile.PL  META.yml  rpm      t
+bin      debian   lib  MANIFEST     README    samples  tests
+[root@mgm57 mha4mysql-manager-0.56]#
+[root@mgm57 mha4mysql-manager-0.56]# perl Makefile.PL //配置
+*** Module::AutoInstall version 1.03
+*** Checking for Perl dependencies...
+[Core Features]
+- DBI                   ...loaded. (1.627)
+- DBD::mysql            ...loaded. (4.023)
+- Time::HiRes           ...loaded. (1.9725)
+- Config::Tiny          ...loaded. (2.14)
+- Log::Dispatch         ...loaded. (2.41)
+- Parallel::ForkManager ...loaded. (1.18)
+- MHA::NodeConst        ...loaded. (0.56)
+*** Module::AutoInstall configuration finished.
+Checking if your kit is complete...
+Looks good
+Writing Makefile for mha4mysql::manager
+Writing MYMETA.yml and MYMETA.json
+[root@mgm57 mha4mysql-manager-0.56]#  make //编译
+[root@mgm57 mha4mysql-manager-0.56]#  make install //安装
+[root@mgm57 mha4mysql-manager-0.56]# ls /root/perl5/bin  //查看安装的命令
+masterha_check_repl    masterha_conf_host       masterha_master_switch
+masterha_check_ssh     masterha_manager         masterha_secondary_check
+masterha_check_status  masterha_master_monitor  masterha_stop
+2）编辑主配置文件        
+[root@mgm57 ~ ]#  mkdir  /etc/mha  //创建工作目录
+[root@mgm57 ~ ]#  cp mha4mysql-manager-0.56/sample/confs/app1.cnf /etc/mha/ //拷贝模板文件     
+     3.3 配置数据库服务器 51 52 53
+         
+     3.4 验证配置
+     3.5 拍错
+     3.6 启动管理服务
+     3.7 测试集群的高可用功能
+       
