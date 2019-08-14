@@ -159,5 +159,33 @@ eth0:1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
         inet 192.168.4.100  netmask 255.255.255.0  broadcast 192.168.4.255
         ether 52:54:00:81:30:c2  txqueuelen 1000  (Ethernet)
      3.7 测试集群的高可用功能
-        3.7.1 在主服务器51添加
-       
+        3.7.1 在主服务器51添加访问数据的链接用户
+       mysql> create database db9;
+Query OK, 1 row affected (0.03 sec)
+
+mysql> create table db9.a(id int);
+Query OK, 0 rows affected (0.24 sec)
+
+mysql> grant select,insert on db9.* to yaya55@"%" identified by "123qqq...A";
+Query OK, 0 rows affected, 1 warning (0.03 sec)
+        3.7.2 在客户端50登录新授权的用户
+[root@host50 ~]# mysql -h192.168.4.100 -uyaya55 -p123qqq...A
+mysql> show grants;
++-------------------------------------------------+
+| Grants for yaya55@%                             |
++-------------------------------------------------+
+| GRANT USAGE ON *.* TO 'yaya55'@'%'              |
+| GRANT SELECT, INSERT ON `db9`.* TO 'yaya55'@'%' |
++-------------------------------------------------+
+2 rows in set (0.00 sec)
+
+mysql> insert into db9.a values(100);
+Query OK, 1 row affected (0.06 sec)
+
+mysql> select * from db9.a;
++------+
+| id   |
++------+
+|  100 |
++------+
+1 row in set (0.00 sec)
