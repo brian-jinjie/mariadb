@@ -88,10 +88,76 @@ masterha_check_status  masterha_master_monitor  masterha_stop
 2）编辑主配置文件        
 [root@mgm57 ~ ]#  mkdir  /etc/mha  //创建工作目录
 [root@mgm57 ~ ]#  cp mha4mysql-manager-0.56/sample/confs/app1.cnf /etc/mha/ //拷贝模板文件     
-     3.3 配置数据库服务器 51 52 53
-         
+[root@pc57 mha-soft-student]# vim /etc/mha/app1.cnf
+[server default]
+manager_workdir=/etc/mha
+manager_log=/etc/mha/manager.log
+master_ip_failover_script=/etc/mha/master_ip_failover
+ 
+ssh_user=root
+ssh_port=22
+ 
+repl_user=jie
+repl_password=123qqq...A
+ 
+user=root
+password=123qqq...A
+ 
+[server1]
+hostname=192.168.4.51
+candidate_master=1
+ 
+[server2]
+hostname=192.168.4.52
+candidate_master=1
+ 
+[server3]
+hostname=192.168.4.53
+candidate_master=1
+
+
+
+     2.3 配置数据库服务器 51 52 53
+         2.3.1 把vip地址192.168.4.100 配置在主数据库51上
+           [root@host51 ~]# ifconfig eth0:1 192.168.4.100/24
+         2.3.2 添加授权用户root(主服务器51授权从服务器自动同步)
+           [root@host51 ~]# mysql -uroot -p123456
+                mysql> grant all on *.* to root@"%" identified by "123qqq...A";
+         2.3.3 在从52和53添加同步数据的连接用户jie(已添加可忽略)
+           [root@pc52 ~]# mysql -uroot -pBrianliang951205.    
+               mysql> grant all on *.* to root@"%" identified by "123qqq...A";
+           [root@pc53 ~]# mysql -uroot -pBrianliang951205.
+              mysql> grant all on *.* to root@"%" identified by "123qqq...A";
+         2.3.4 在从52和53 启用binlog日志文件
+            [root@pc52 ~]# vim /etc/my.cnf
+               log_bin=master52
+            [root@pc53 ~]# vim /etc/my.cnf
+               log_bin=master53
+         2.3.5 在所有数据库服务器设置禁止自动删除本机的中继日志文件
+            [root@pc52 ~]# vim /etc/my.cnf
+               relay_log_purge=0
+            [root@pc53 ~]# vim /etc/my.cnf
+               relay_log_purge=0
+         2.3.6 在所有数据库服务器启用半同步复制模式
+            plugin-load="rpl_semi_sync_master=semisync_master.so;rpl_semi_sync_slave=semisync_slave.so"
+rpl_semi_sync_master_enabled=1
+rpl_semi_sync_slave_enabled=1
+         2.3.7 重启3台服务器的mysql服务,并查看主从同步是否正常
+              
+         2.3.8 在所有数据库服务器上安装mha_node
+         [root@pc52 ~]# cd /root/mysql/mha-soft-student/
+         [root@pc52 mha-soft-student]# rpm -ivh mha4mysql-node-0.56-0.el6.noarch.rpm
+                        
      3.4 验证配置
-     3.5 拍错
+         [root@pc57 mha-soft-student]# masterha_check_ssh --conf=/etc/mha/app1.cnf
+         [root@pc57 mha-soft-student]# masterha_check_repl --conf=/etc/mha/app1.cnf               
+     3.5 排错
      3.6 启动管理服务
+        查看当前主服务器是否配置IP地址
+        [root@host51 mha-soft-student]# ifconfig eth0:1
+eth0:1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.4.100  netmask 255.255.255.0  broadcast 192.168.4.255
+        ether 52:54:00:81:30:c2  txqueuelen 1000  (Ethernet)
      3.7 测试集群的高可用功能
+        3.7.1 在主服务器51添加
        
