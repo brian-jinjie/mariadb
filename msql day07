@@ -167,35 +167,41 @@ select  * from mysql> select  * from gamedb.a;
 
 	        ]# systemctl  stop mysqld  
 		]# mv /etc/my.cnf  /root/
-
-		1 安装软件  休息到 17：10  
+1）解压软件、修改目录名、设置PATH路径
+]# yum –y  install libaio
+]# useradd  mysql
 ]# tar -zxvf mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz
-]# ls 
-Desktop  mysql-5.7.20-linux-glibc2.12-x86_64  mysql-5.7.20-linux-glibc2.12-x86_64.tar.gz
-[root@host56 ~]# 
-[root@host56 ~]# mv mysql-5.7.20-linux-glibc2.12-x86_64 /usr/local/mysql
-[root@host56 ~]# 
-[root@host56 ~]# ls /usr/local/mysql
-bin  COPYING  docs  include  lib  man  README  share  support-files
-[root@host56 ~]# 
-[root@host56 ~]# 
-[root@host56 ~]# ls /usr/local/mysql/bin/
-innochecksum                mysql_config_editor        mysqlshow
-lz4_decompress              mysqld                     mysqlslap
-myisamchk                   mysqld-debug               mysql_ssl_rsa_setup
-myisam_ftdump               mysqld_multi               mysqltest_embedded
-myisamlog                   mysqld_safe                mysql_tzinfo_to_sql
-myisampack                  mysqldump                  mysql_upgrade
-my_print_defaults           mysqldumpslow              mysqlxtest
-mysql                       mysql_embedded             perror
-mysqladmin                  mysqlimport                replace
-mysqlbinlog                 mysql_install_db           resolveip
-mysqlcheck                  mysql_plugin               resolve_stack_dump
-mysql_client_test_embedded  mysqlpump                  zlib_decompress
-mysql_config                mysql_secure_installation
-[root@host56 ~]#
+]# mv mysql-5.7.20-linux-glibc2.12-x86_64 /usr/local/mysql
+]# PATH=/usr/local/mysql/bin:$PATH
+]# vim /etc/bashrc
+export PATH=/usr/local/mysql/bin:$PATH
+:wq
+2）编辑主配置文件/etc/my.cnf
+每个实例要有独立的数据库目录、监听端口号、实例名称和独立的sock文件
+]# vim /etc/my.cnf
+[mysqld_multi]        //启用多实例
+mysqld = /usr/local/mysql/bin/mysqld_safe        //指定进程文件路径
+mysqladmin = /usr/local/mysql/bin/mysqladmin    //指定管理命令路径
+user = root        //指定进程用户
+[mysqld1]        //实例进程名称
+port=3307        //端口号
+datadir=/dir1        //数据库目录 ，要手动创建
+socket=/dir1/mysqld1.sock        //指定sock文件的路径和名称
+pid-file=/dir1/mysqld1.pid        //进程pid号文件位置
+log-error=/dir1/mysqld1.err        //错误日志位置 
+[mysqld2]
+port=3308
+datadir=/dir2
+socket=/dir2/mysqld2.sock
+pid-file=/dir2/mysqld2.pid
+log-error=/dir2/mysqld2.err 
+:wq
 
- 
+3）创建数据库目录
+]# mkdir  /dir2
+]# mkdir  /dir1
+4）启动多实例
+首次启动服务会做数据初始化 并初始和提示数据库管理员本机登录密码
  
  
  
