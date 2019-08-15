@@ -199,7 +199,7 @@ mysql> desc employee;
 
 mysql> 
 
-mysql> mysql> show tables; (53/54/55)
+mysql> show tables; (53/54/55)
 +---------------+
 | Tables_in_db2 |
 +---------------+
@@ -237,7 +237,8 @@ values
 (6,10000,"lucy2",16);
 
 > 
-mysql> select  * from employee;                                              +----+-------------+-------+------+
+mysql> select  * from employee;                                              
++----+-------------+-------+------+
 | ID | sharding_id | name  | age  |
 +----+-------------+-------+------+
 |  1 |       10000 | bob   |   19 |
