@@ -208,10 +208,60 @@ log-error=/dir2/mysqld2.err
  ]# mysqld_multi  start 2  //启动实例2
  ]# ls /dir1 //查看数据库目录文件列表
 
+5）查看端口
+]# netstat -utnlp  | grep :3307
+]# netstat -utnlp  | grep :3308
+]# netstat -utnlp | grep mysqld
+]# ps -C mysqld
+6）访问多实例
+使用初始化密码登录实例1
+[root@host57 ~]# mysql -uroot -p'ly#LryiFE5fT' -S /dir1/mysqld1.sock
+mysql> alter user root@"localhost" identified by "123456";    //修改密码
+mysql> exit
+Bye
 
+[root@host57 ~]# mysql -uroot -p123456  -S /dir1/mysqld1.sock //新密码登录
+mysql> show databases;
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| mysql              |
+| performance_schema |
+| sys                |
++--------------------+
+4 rows in set (0.00 sec)
+mysql> create database db1; //创建新库db1
+Query OK, 1 row affected (0.00 sec)
+mysql> show databases; //查看已有的库
++--------------------+
+| Database           |
++--------------------+
+| information_schema |
+| db1                  |  //db1库
+| mysql              |
+| performance_schema |
+| sys                |
++--------------------+
+5 rows in set (0.00 sec)
+mysql> exit  //断开连接
+Bye
+[root@host56 ~]# ls /dir1  //查看数据库目录文件列表 有db1库的文件夹
+auto.cnf        ibdata1      ibtmp1       mysqld1.pid          performance_schema
+db1             ib_logfile0  mysql        mysqld1.socket       sys
+ib_buffer_pool  ib_logfile1  mysqld1.err  mysqld1.socket.lock
 
-
-
+7）停止多实例服务
+mysqld_multi --user=root --password=密码 stop 实例编号
+]# netstat -utnlp  | grep  mysqld
+tcp6       0      0 :::3307                 :::*                    LISTEN      1250/mysql
+tcp6       0      0 :::3308                 :::*                    LISTEN      1451/mysql
+]# mysqld_multi  --user=root --password=123456  stop 2
+ [root@host56 ~]# netstat -utnlp  | grep  mysqld
+tcp6       0      0 :::3307                 :::*                    LISTEN      1250/mysql
+]# mysql -uroot   -p123456   -S    /dir2/mysqld2.sock //拒绝连接
+mysql: [Warning] Using a password on the command line interface can be insecure.
+ERROR 2002 (HY000): Can't connect to local MySQL server through socket '/dir2/mysqld2.sock'
 
 
 
