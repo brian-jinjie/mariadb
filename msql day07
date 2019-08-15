@@ -203,6 +203,19 @@ log-error=/dir2/mysqld2.err
 4）启动多实例
 首次启动服务会做数据初始化 并初始和提示数据库管理员本机登录密码
  
- 
- 
- 
+ [root@host57 ~]# mysqld_multi  start 1 //启动实例1
+ ]# ls /dir1 //查看数据库目录文件列表
+ ]# mysqld_multi  start 2  //启动实例2
+ ]# ls /dir1 //查看数据库目录文件列表
+
+
+
+
+
+
+
+
+
+
+
+
