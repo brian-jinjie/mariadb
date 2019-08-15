@@ -67,14 +67,66 @@
                     ]# sed -i  '16,18d' schema.xml
                     [root@mycat56 conf]# wc -l schema.xml 
                     48 schema.xml]# vim /usr/local/mycat/conf/schema.xml
-                    <mycat  >
-	             <schema >  定义数据分片存储的表
-	           	<table> ...</table>
-		         <table    />
-	              </schema>
-	             <datanode  ...... /> 定义数据库主机名及存储数据的库
-                     <datahost>......</datahost> 定义数据库服务器ip
-                        </myscat>
+                   [root@mycat56 conf]# vim  /usr/local/mycat/conf/schema.xml 
+<?xml version="1.0"?>
+<!DOCTYPE mycat:schema SYSTEM "schema.dtd">
+<mycat:schema xmlns:mycat="http://io.mycat/">
+          
+       <schema name="TESTDB" checkSQLschema="false" sqlMaxLimit="100">//对TESTDB库下的表做分片存储
+                <!-- auto sharding by id (long) -->
+                  
+                <table name="travelrecord" dataNode="dn1,dn2,dn3" rule="auto-sharding-long" />  //对travelrecord表做分片存储
+                <!-- global table is auto cloned to all defined data nodes ,so can join
+                        with any table whose sharding node is in the same data node -->
+                <table name="company" primaryKey="ID" type="global" dataNode="dn1,dn2,dn3" />  //对company表做分片存储
+                <table name="goods" primaryKey="ID" type="global" dataNode="dn1,dn2,dn3" />  
+                <!-- random sharding using mod sharind rule -->
+                <table name="hotnews"  dataNode="dn1,dn2,dn3"
+                           rule="mod-long" /> 
+                <table name="employee" primaryKey="ID" dataNode="dn1,dn2,dn3"
+                           rule="sharding-by-intfile" /> 
+                <table name="customer" primaryKey="ID" dataNode="dn1,dn2,dn3"
+                           rule="sharding-by-intfile"> 
+                        <childTable name="orders" primaryKey="ID" joinKey="customer_id"
+                                                parentKey="id">
+                                <childTable name="order_items" joinKey="order_id"
+                                                        parentKey="id" />
+                        </childTable>
+                        <childTable name="customer_addr" primaryKey="ID" joinKey="customer_id"
+                                                parentKey="id" />
+                </table>
+                <!-- <table name="oc_call" primaryKey="ID" dataNode="dn1$0-743" rule="latest-month-calldate"
+                        /> -->
+        </schema>//定义数据库主机名及存储数据的库
+<dataNode name="dn1" dataHost="localhost53" database="db1" /> 
+<dataNode name="dn2" dataHost="localhost54" database="db2" />
+<dataNode name="dn3" dataHost="localhost55" database="db3" />
+//定义localhost53主机名对应的数据库服务器ip地址
+<dataHost name="localhost53" maxCon="1000" minCon="10" balance="0"
+                          writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100"> 
+                <heartbeat>select user()</heartbeat>
+                <writeHost host="hostM53" url="192.168.4.53:3306" user="adminplj"
+                                   password="123qqq...A">
+                </writeHost> 
+ </dataHost>
+    
+     //定义localhost54主机名对应的数据库服务器ip地址
+    <dataHost name="localhost54" maxCon="1000" minCon="10" balance="0"
+                          writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+                <heartbeat>select user()</heartbeat>
+                <writeHost host="hostM54" url="192.168.4.54:3306" user="adminplj"
+                                   password="123qqq...A">
+                </writeHost> 
+     </dataHost> 
+    //定义localhost54主机名对应的数据库服务器ip地址
+    <dataHost name="localhost55" maxCon="1000" minCon="10" balance="0"
+                          writeType="0" dbType="mysql" dbDriver="native" switchType="1"  slaveThreshold="100">
+                <heartbeat>select user()</heartbeat>
+                <writeHost host="hostM55" url="192.168.4.55:3306" user="adminplj"
+                                   password="123qqq...A">
+                </writeHost>
+     </dataHost>
+:wq
                     3 配置数据库服器（根据配置文件的设置，配置数据库服务器）
 				3.1	创建存储数据库
                         host55 ~]# mysql -uroot -p123qqq...A -e  "create database db3"				
@@ -264,7 +316,11 @@ mysql> mysql> select  * from db1.employee; (192.168.4.51)
 4 rows in set (0.00 sec)
 
 mysql>
-			求模法分片规则的使用 mod-long
+
+
+
+	求模法分片规则的使用 mod-long
+	
 				根据字段值与设定的数字求模结果存储数据
 	]#vim  schema.xml
 	<table name="hotnews"  dataNode="dn1,dn2,dn3"
