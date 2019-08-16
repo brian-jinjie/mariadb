@@ -295,7 +295,7 @@ Mysql存储引擎
         -事务日志文件 1.ibdata1（记录未完全提交的操作）     2.ib_logfile0(记录已提交操作） 3.ib_logflie1(记录已提交操作）
   
   3.MySQL锁机制
-    3.1 锁粒度: 1.表级锁:对整张表加锁 2.行级锁:仅对被访问的行分别加锁
+    3.1 锁粒度: 　1.表级锁:对整张表加锁 2.行级锁:仅对被访问的行分别加锁
         锁类型:  1.读锁(共享锁):支持并发读 2.写锁(互斥锁\排它锁):是独占锁,上锁期间其他线程不能读表或写表
         查看当前锁状态
           -show status like "table_lock%";
@@ -314,6 +314,10 @@ Mysql存储引擎
     mysql> set autocommit=off;               //关闭自动提交
     mysql> rollback;                         //数据回滚
     mysql> commit;                          //手动提交数据
+    
+    6.建表时如何决定表使用哪种存储引擎？
+    select操作多的表适合使用myisam存储引擎.支持并发访问且节省系统硬件资源（读表不锁表）
+    insert,delete等操作多的表适合使用innodb存储引擎.
     
     
 步骤一：查看服务支持的存储引擎
@@ -336,6 +340,161 @@ default_storage_engine=myisam                              //改用myisam引擎
 
 重新登入 mysql> 确认修改结果：
 [root@dbsvr1 ~]# mysql -u root -p
+mysql> SHOW VARIABLES LIKE 'default_storage_engine';
 
+步骤三：查看表使用的存储引擎
+登入MySQL服务器查看。
+mysql> show create table user \G;  //查看建表命令
 
+ 步骤四：设置表使用的存储引擎
+
+登入MySQL服务器设置。   
+    mysql> create table stuinfo( name char(10), age int )engine=memory;//设置
+Query OK, 0 rows affected (0.12 sec)
+mysql> 
+mysql> show create table stuinfo\G; //查看
+
+步骤五：修改表存储引擎
+
+登入MySQL服务器修改。
+mysql> alter table  stuinfo  engine=innodb; //修改
+mysql> show create table stuinfo\G; //查看
+    
+ 步骤一：创建innodb存储引擎的表
+
+1）数据库管理员root登录，创建新库、新表。
+[root@host50 ~]# mysql -uroot -p123456  //访问服务
+mysql> create database  db10;  //建库
+Query OK, 1 row affected (0.05 sec)
+mysql> use  db10; //切换库
+Database changed
+mysql> 
+mysql> create table  a(id int)engine=innodb; //建表并指定存储引擎
+Query OK, 0 rows affected (0.52 sec)
+步骤二：关闭服务的自动提交功能
+
+1）数据库管理员root登录，关闭服务的自动提交功能。
+mysql> show variables like "%commit%"; //查看所有包涵commit 字样的变量
++-----------------------------------------+-------+
+| Variable_name                           | Value |
++-----------------------------------------+-------+
+| autocommit                              | ON    |     //自动提交功能开启
+| binlog_group_commit_sync_delay          | 0     |
+| binlog_group_commit_sync_no_delay_count | 0     |
+| binlog_order_commits                    | ON    |
+| innodb_api_bk_commit_interval           | 5     |
+| innodb_commit_concurrency               | 0     |
+| innodb_flush_log_at_trx_commit          | 1     |
+| slave_preserve_commit_order             | OFF   |
++-----------------------------------------+-------+
+8 rows in set (0.01 sec)
+mysql> set autocommit=off ; 关闭自动提交
+Query OK, 0 rows affected (0.00 sec)
+mysql> show variables like "autocommit";  //查看
++---------------+-------+
+| Variable_name | Value |
++---------------+-------+
+| autocommit    | OFF   |            //已处于关闭状态
++---------------+-------+
+1 row in set (0.00 sec)
+mysql>
+步骤三：测试事务特性
+
+1）插入新记录，不执行提交命令commit
+mysql> insert into db10.a values(101); //插入记录
+Query OK, 1 row affected (0.00 sec)   
+   
+mysql> select  * from db10.a ;//查看记录
++------+
+| id   |
++------+
+|  101 |
++------+
+1 row in set (0.00 sec)
+mysql>
+2）打开新终端访问数据服务，查看不到插入的数据
+注：此处打开的终端称为终端2 ， 此处之前终端被称为终端1
+[root@host50 ~]# mysql -uroot -p123456
+mysql> select  * from  db10.a; //没有记录
+Empty set (0.00 sec)
+mysql>
+3）终端1 执行提交命令commit
+mysql> select  * from db10.a ;
++------+
+| id   |
++------+
+|  101 |
++------+
+1 row in set (0.00 sec)
+mysql> commit ; 执行提交命令
+Query OK, 0 rows affected (0.08 sec)
+4）第终端2执行查看命令
+mysql> select  * from  db10.a;
+Empty set (0.00 sec)
+mysql> select  * from  db10.a; //查看到数据
++------+
+| id   |
++------+
+|  101 |
++------+
+1 row in set (0.00 sec)
+
+ 5）在终端1删除记录 ，不执行提交命令commit
+将/etc/passwd文件复制到/var/lib/mysql-files/目录下，
+mysql> select  * from db10.a ; //删除前查看
++------+
+| id   |
++------+
+|  101 |
++------+
+1 row in set (0.00 sec)
+mysql> delete from  db10.a ;//删除表记录
+Query OK, 1 row affected (0.00 sec)
+mysql> 
+mysql> select  * from db10.a ;  //查看不到记录
+Empty set (0.00 sec)
+6）在终端2 依然可以查看到记录
+mysql> select  * from  db10.a;
++------+
+| id   |
++------+
+|  101 |
++------+
+1 row in set (0.00 sec)
+mysql>
+7）在终端1，执行回滚命令
+mysql> select  * from db10.a ; //回滚前查看
+Empty set (0.00 sec)
+ 
+    mysql> 
+mysql> rollback ;  //数据回滚
+Query OK, 0 rows affected (0.03 sec)
+mysql> 
+mysql> select  * from db10.a ; //回滚后查看
++------+
+| id   |
++------+
+|  101 |
++------+
+1 row in set (0.00 sec)
+mysql>
+mysql> delete from  db10.a ; //删除记录
+Query OK, 1 row affected (0.00 sec)
+mysql> commit ; //提交
+Query OK, 0 rows affected (0.08 sec)
+mysql> 
+mysql> rollback ; //数据回滚
+Query OK, 0 rows affected (0.00 sec)
+mysql> select  * from db10.a ; //查看不到记录
+Empty set (0.00 sec)
+mysql>
+8）在终端2 也查看不到记录
+mysql> select  * from  db10.a;
+Empty set (0.00 sec)
+    
+    
+    
+    
+    
+    
     
