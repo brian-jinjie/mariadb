@@ -1,0 +1,341 @@
+回顾:
+MHA
+1.必要条件必须是一主多从结构
+客户端访问必须连接vip地址
+且vip地址必须在主数据库服务器上
+
+把坏掉的数据库服务器添加到集群里时,必须手动配置数据一致,把服务器添加为当前主服务器的从库添加到集群里 
+
+
+pxc
+   1.1 pxc介绍:mysql服务高可用集群
+    -基于Galera的mysql 高可用解决方案
+    -Galera Cluter是Codership公司开发的一套免费开源的高可用方案
+    -pxc集群主要由两个部分组成:Percona Server with XtraDB和Write set Replication patches(同步\多主复制插件)
+    -官网http://galeracluster.com
+    
+ pxc特点
+    具体如下:
+      -数据强一致性,无同步延迟
+      -没有主从切换操作,无需使用虚拟IP
+      -支持InnoDB存储引擎
+      -多线程复制
+      -部署使用简单
+      -支持节点自动加入,无需手动拷贝数据
+      
+  相关服务端口
+    端口    说明
+    3306    数据库服务端口    
+    4444    SST端口
+    4567    集群通信端口
+    4568    IST端口
+    SST     State Snapshot Transfer全量同步
+    IST     Incremental State Transfer 增量同步
+    
+    主机角色
+    三台服务器   
+  
+步骤一：环境准备    
+     准备三台主机
+      192.168.4.71 主机名pxcnode71
+      192.168.4.72 主机名pxcnode72
+      192.168.4.73 主机名pxcnode73
+     
+    配置主机名与ip地址绑定
+配置服务器192.168.4.71
+]#  vim /etc/hosts
+192.168.4.71     pxcnode71
+192.168.4.72     pxcnode72
+192.168.4.73     pxcnode73 
+:wq
+]#hostname  pxcnode71
+  配置服务器192.168.4.72  
+ ]#  vim /etc/hosts
+192.168.4.71     pxcnode71
+192.168.4.72     pxcnode72
+192.168.4.73     pxcnode73 
+:wq
+]#hostname  pxcnode72
+
+配置服务器192.168.4.73
+    ]#  vim /etc/hosts
+192.168.4.71     pxcnode71
+192.168.4.72     pxcnode72
+192.168.4.73     pxcnode73 
+:wq
+]#hostname  pxcnode73
+    
+  在任意一台服务器上ping 对方的主机名，ping通为配置成功。  
+  确保三台数据库服务器之间能ping通
+    
+  步骤二：安装软件包
+
+1）在192.168.4.71 服务器安装软件包
+软件包之间有依赖注意软件包安装顺序
+]# rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm    //安装依赖
+]# yum  -y  install  percona-xtrabackup-24-2.4.13-1.el7.x86_64.rpm
+ ]# rpm -ivh qpress-1.1-14.11.x86_64.rpm     //安装依赖
+ ]# tar -xvf  Percona-XtraDB-Cluster-5.7.25-31.35-r463-el7-x86_64-bundle.tar
+ ]# yum -y  install  Percona-XtraDB-Cluster-*.rpm
+2）在192.168.4.72 服务器安装软件包
+]# rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm    //安装依赖
+]# yum  -y  install  percona-xtrabackup-24-2.4.13-1.el7.x86_64.rpm
+]# rpm -ivh qpress-1.1-14.11.x86_64.rpm     //安装依赖
+]# tar -xvf  Percona-XtraDB-Cluster-5.7.25-31.35-r463-el7-x86_64-bundle.tar
+]# yum -y  install  Percona-XtraDB-Cluster-*.rpm
+3）在192.168.4.73 服务器安装软件包
+]# rpm -ivh libev-4.15-1.el6.rf.x86_64.rpm    //安装依赖
+]# yum  -y  install  percona-xtrabackup-24-2.4.13-1.el7.x86_64.rpm
+]# rpm -ivh qpress-1.1-14.11.x86_64.rpm     //安装依赖
+]# tar -xvf  Percona-XtraDB-Cluster-5.7.25-31.35-r463-el7-x86_64-bundle.tar
+]# yum -y  install  Percona-XtraDB-Cluster-*.rpm
+    
+    
+配置服务
+  步骤一：修改mysqld.cnf文件(每台服务器都要操作,仅修改server_id 即可)
+
+[root@pxcnode71 ~]# vim /etc/percona-xtradb-cluster.conf.d/mysqld.cnf
+[mysqld]
+server-id=71                      //server-id 不允许重复
+datadir=/var/lib/mysql                  //数据库目录
+socket=/var/lib/mysql/mysql.sock         //socket文件
+log-error=/var/log/mysqld.log        //日志文件
+pid-file=/var/run/mysqld/mysqld.pid    //pid文件
+log-bin                    //启用binlog日志
+log_slave_updates            //启用链式复制
+expire_logs_days=7            //日志文件保留天数
+:wq
+  
+ 步骤二：修改mysqld_safe.cnf文件
+
+1）分别修改3台服务器的mysqld_safe.cnf （使用默认配置即可）
+root@pxcnode71 ~]# vim /etc/percona-xtradb-cluster.conf.d/mysqld_safe.cnf
+[mysqld_safe]
+pid-file = /var/run/mysqld/mysqld.pid
+socket   = /var/lib/mysql/mysql.sock
+nice     = 0
+:wq
+    
+    步骤三：修改wsrep.cnf文件
+
+1）分别修改3台服务器的wsrep.cnf
+[root@pxcnode71 ~]# vim /etc/percona-xtradb-cluster.conf.d/wsrep.cnf
+wsrep_cluster_address=gcomm://192.168.4.71,192.168.4.72,192.168.4.73//成员列表
+wsrep_node_address=192.168.4.71 //本机ip
+wsrep_cluster_name=pxc-cluster //集群名,三台机子必须一致
+wsrep_node_name=pxcnode71 //本机主机名
+wsrep_sst_auth="sstuser:123qqq...A" //SST数据同步授权用户及密码
+:wq
+    
+    步骤四：启动服务
+
+1）启动集群服务
+注意：在1台服务器上执行即可(192.168.4.71)，首次启动服务时间比较长
+[root@pxcnode71 ~]# ]# systemctl  start mysql@bootstrap.service  //启动集群服务
+[root@pxcnode71 ~]# grep pass /var/log/mysqld.log     //查看数据库管理员初始登录密码
+2019-06-20T12:29:42.489377Z 1 [Note] A temporary password is generated for root@localhost: W.HiOb8(ok)_
+[root@pxcnode71 ~]#mysql –uroot –p’ W.HiOb8(ok)_’ //使用初始密码登录
+Mysql> alter user  root@”localhost” identified by “123456”;//修改登录密码
+MySQL> exit;
+[root@pxcnode71 ~]#mysql –uroot –p123456 //使用修改后的密码登录
+Mysql> garnt reload, lock tables,replication client,process on *.*  to
+sstuser@"localhost” identified by  “123qqq…A”; //添加授权用户
+2）启动数据库服务
+启动主机pxcnode72的数据库服务，会自动同步pxcnode71主机的root初始密码和授权用户sstuser
+[root@pxcnode72 ~]# systemctl  start mysql  //启动数据库服务
+[root@pxcnode72 ~]#
+[root@pxcnode72 ~]# netstat -utnlp  | grep :3306
+tcp6       0      0 :::3306                 :::*                    LISTEN      12794/mysqld        
+[root@pxcnode72 ~]# netstat -utnlp  | grep :4567
+tcp        0      0 0.0.0.0:4567            0.0.0.0:*               LISTEN      12794/mysqld        
+[root@host72 ~]#
+启动主机pxcnode73的数据库服务，会自动同步pxcnode71主机的root初始密码和授权用户sstuser
+[root@pxcnode73 ~]# systemctl  start mysql  //启动数据库服务
+[root@pxcnode73 ~]#
+[root@pxcnode73 ~]# netstat -utnlp  | grep :3306
+tcp6       0      0 :::3306                 :::*                    LISTEN      12794/mysqld        
+[root@pxcnode73 ~]# netstat -utnlp  | grep :4567
+tcp        0      0 0.0.0.0:4567            0.0.0.0:*               LISTEN      12794/mysqld        
+[root@host73 ~]#
+    
+    
+  3.2 步骤
+
+实现此案例需要按照如下步骤进行。
+步骤一：查看集群信息
+
+1）启动数据库服务
+在任意一台数据查看都可以。
+[root@pxcnode71 ~]# mysql -uroot -p123456
+mysql > shou status like "%wsrep%";
+mysql > wsrep_incoming_addresses 192.168.4.71:3306,192.168.4.72:3306,192.168.4.73:3306 //集群成员列表 
+mysql > wsrep_cluster_size       3 //集群服务器台数
+mysql > wsrep_cluster_status   Primary     //集群状态                           
+mysql > wsrep_connected        ON            //连接状态
+mysql > wsrep_ready             ON           //服务状态
+  
+ 步骤二：访问集群，存取数据
+
+1）添加访问数据的连接用户 （在任意一台服务器上添加都可以，另外的2台服务器会自动同步授权用户）
+[root@pxcnode72 ~]# mysql  -uroot  -p123456
+mysql> grant all on  gamedb.*  to yaya@"%" identified by "123456"; //添加授权用户
+Query OK, 0 rows affected, 1 warning (0.18 sec)
+[root@pxcnode71 ~]# mysql -uroot -p123456 -e  'show grants for yaya@"%" ' //查看
+mysql: [Warning] Using a password on the command line interface can be insecure.
++--------------------------------------------------+
+| Grants for yaya@%                                |
++--------------------------------------------------+
+| GRANT USAGE ON *.* TO 'yaya'@'%'                 |
+| GRANT ALL PRIVILEGES ON `gamedb`.* TO 'yaya'@'%' |
++--------------------------------------------------+
+[root@pxcnode71 ~]#
+[root@pxcnode73 ~]# mysql -uroot -p123456 -e  'show grants for yaya@"%" ' //查看
+mysql: [Warning] Using a password on the command line interface can be insecure.
++--------------------------------------------------+
+| Grants for yaya@%                                |
++--------------------------------------------------+
+| GRANT USAGE ON *.* TO 'yaya'@'%'                 |
+| GRANT ALL PRIVILEGES ON `gamedb`.* TO 'yaya'@'%' |
++--------------------------------------------------+
+
+2）客户端连接集群存取数据 （连接任意一台数据库服务器的ip地址都可以）
+连接数据服务器主机73
+client50 ~]# mysql -h192.168.4.73 -uyaya -p123456 //连接服务器73
+mysql>
+mysql> create database gamedb; //建库
+Query OK, 1 row affected (0.19 sec)
+mysql>  create table  gamedb.a(id int primary key auto_increment,name char(10));//建表
+Query OK, 0 rows affected (1.02 sec)
+mysql> insert into gamedb.a(name)values("bob"),("tom"); //插入记录
+Query OK, 2 rows affected (0.20 sec)
+Records: 2  Duplicates: 0  Warnings: 0
+3）在另外2台数据库服务器查看数据，客户端连接数据库服务器71主机查看数据。
+client50 ~]# mysql -h192.168.4.71 -uyaya -p123456 //连接服务器71
+mysql> select  * from  gamedb.a; //查看记录
++----+-------+
+| id | name  |
++----+-------+
+|  2 | bob   |
+|  5 | tom   |
+4）客户端连接数据库服务器73主机查看数据
+client50 ~]# mysql -h192.168.4.73 -uyaya -p123456 //连接服务器73
+mysql> select  * from  gamedb.a; //查看记录
++----+-------+
+| id | name  |
++----+-------+
+|  2 | bob   |
+|  5 | tom   |
+    
+    步骤三：测试故障自动恢复
+
+1）停止数据库服务
+停止3台服务器的任意一台主机的数据库服务都不会影响数据的存取。
+[root@pxcnode71 ~]# systemctl  stop  mysql  //停止71主机的数据库服务
+Client50 ~]# client50 ~]# mysql -h192.168.4.72 -uyaya -p123456 //连接服务器72
+mysql> insert into gamedb.a(name)values("bob2"),("tom2");
+mysql> insert into gamedb.a(name)values("jerry"),("jack");
+Query OK, 2 rows affected (0.20 sec)
+Records: 2  Duplicates: 0  Warnings: 0 
+
+客户端50，连接数据库主机73，查看数据
+client50 ~]# mysql -h192.168.4.73 -uyaya -p123456 //连接服务器73
+mysql> select  * from  gamedb.a;
++----+-------+
+| id | name  |
++----+-------+
+|  2 | bob   |
+|  5 | tom   |
+|  7 | bob2  |
+|  9 | tom2  |
+| 11 | jerry |
+| 13 | jack  |
++----+-------+
+6 rows in set (0.00 sec)
+3）启动71主机的数据库服务
+数据库服务运行后，会自动同步宕机期间的数据。
+client50 ~]# mysql -h192.168.4.71 -uyaya -p123456 //连接服务器71
+mysql> select  * from  gamedb.a;
++----+-------+
+| id | name  |
++----+-------+
+|  2 | bob   |
+|  5 | tom   |
+|  7 | bob2  |
+|  9 | tom2  |
+| 11 | jerry |
+| 13 | jack  |
++----+-------+
+rows in set (0.00 sec)
+    
+    
+####################################################################################
+
+Mysql存储引擎
+
+1.存储引擎概述
+  1.1 作为可插拔式的组件提供
+   -mysql 服务软件自带的更能程序,处理表的处理器
+   -不同的存储引擎有不同的功能和数据存储方式
+   -Mysql 5.0/5.1 ----> MyISAM
+   -Mysql 5.5/5.6 ----> InnoDB
+  1.2 列出可用的存储引擎类型
+    -show engines;
+  1.3 修改表存储引擎
+    `建表时手动指定:
+      -未指定时使用默认存储引擎
+      -alter table 表名 engine=存储引擎名; 
+
+ 2.存储引擎特点:
+    2.1 myisam存储引擎
+       -主要特点: 1.支持表级锁 2.不支持事务,事务回滚,外键
+       -表文件 : 1.表名.frm //表结构  2.表名.MYI //索引 3.表名.MYD //数据
+    2.2 innodb 存储引擎
+        -主要特点:   1.支持行级锁定  2.支持事务,事务回滚,外键
+        -表文件:     1.表名.frm     2.表明.ibd
+        -事务日志文件 1.ibdata1（记录未完全提交的操作）     2.ib_logfile0(记录已提交操作） 3.ib_logflie1(记录已提交操作）
+  
+  3.MySQL锁机制
+    3.1 锁粒度: 1.表级锁:对整张表加锁 2.行级锁:仅对被访问的行分别加锁
+        锁类型:  1.读锁(共享锁):支持并发读 2.写锁(互斥锁\排它锁):是独占锁,上锁期间其他线程不能读表或写表
+        查看当前锁状态
+          -show status like "table_lock%";
+  4.事务特性(ACID)
+  　Atomic:原子性
+   　－事务的整个操作是一个整体，不可分割，要么全部成功，要么全部失败．
+   Consistency: 一致性
+   　－事务操作前后，表中的记录没有变化．
+    Isolaton:隔离性
+    　－事务操作互相隔离不受影响的．
+    Durability:持久性
+    　－数据一旦提交，不可改变，永久改变表数据．
+  5.事务特性（ACID）
+    相关命令：
+    mysql> show variables like "autocommit"   //查看提交状态
+    mysql> set autocommit=off;               //关闭自动提交
+    mysql> rollback;                         //数据回滚
+    mysql> commit;                          //手动提交数据
+    
+    
+步骤一：查看服务支持的存储引擎
+　　[root@dbsvr1 ~]# mysql -u root –p＂密码＂；
+  　mysql> SHOW ENGINES\G
+    
+  步骤二：修改服务默认使用的存储引擎
+
+在 mysql> 环境中，可以直接通过SET指令更改默认的存储引擎（只在本次连接会话过程中有效，退出重进即失效） 。比如临时修改为MyISAM，可执行下列操作：
+mysql> SET default_storage_engine=MyISAM;              //改用MyISAM引擎
+Query OK, 0 rows affected (0.00 sec)
+mysql> SHOW variables like 'default_storage_engine';  //查看当前默认存储引擎
+
+若希望直接修改MySQL服务程序所采用的默认存储引擎，应将相关设置写入配置文件/etc/my.cnf，并重启服务后生效。比如：
+[root@dbsvr1 ~]# vim /etc/my.cnf
+[mysqld]
+.. ..
+default_storage_engine=myisam                              //改用myisam引擎
+[root@dbsvr1 ~]# systemctl  restart mysqld.service           //重启服务
+
+重新登入 mysql> 确认修改结果：
+[root@dbsvr1 ~]# mysql -u root -p
+
+
+    
