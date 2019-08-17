@@ -15,6 +15,13 @@ NOSQL 数据库管理
 主流软件：Memcached,Redis,MongoDB,CouchDB,FlockDB,Neo4j
 
 2.部署Redis介绍
+－安装软件
+－初始化设置
+－查看服务信息
+－服务管理（停止服务　启动服务　查看服务状态）
+－连接服务，存取数据，断开连接
+－常用命令
+
 
 2.1Redis
 －Remote Dictionary Server(远程字典服务器)
@@ -22,6 +29,8 @@ NOSQL 数据库管理
 －支持数据持久化（定期把内存里的数据存储到硬盘）
 －支持多种数据类型string,list,hash.......
 －支持主从模式数据备份
+
+
 
 2.2安装软件
 步骤一：搭建redis服务器
@@ -103,24 +112,197 @@ flushdb      //删除所在库的所有key
 save         //保存所有key到硬盘
 shutdown     //停止服务
 
+配置分类
+　名称　　   说明
+ NETWORK　　网络
+ GENERAL   常规
+SNAPSHOTTING  快照
+REPLICATION  复制
+SECURITY   安全
+CLIENTS    客户
+MEMORY MANAGEMENT 内存管理
+
+数据单位
+1k => 1000 bytes
+1kb => 1024 bytes
+1m => 1000000 bytes
+1mb => 1024*1024 bytes
+1g => 1000000000 bytes
+1gb => 1024*1024*1024 bytes
+
+常用配置
+－port 6379   //端口
+－bind 120.0.0.1 //ip地址
+－daemonize yes  //守护进程方式运行
+－databases 16   //数据库个数
+－logfile /var/log/redis_6379.log　　//日志文件
+－maxclients 10000           //并发连接数量
+－dir /var/lib/redis/6379  //数据库目录
+
+内存管理
 
 
+3 案例3：修改Redis服务运行参数
+3.1 问题
+
+对Redis服务器192.168.4.50做如下配置：
+端口号 6350
+IP地址 192.168.4.50
+连接密码 123456
+测试配置
+3.2 步骤
+
+实现此案例需要按照如下步骤进行。
+步骤一：修改主配置文件
+
+1）修改配置文件
+[root@host50 utils]# cp /etc/redis/6379.conf  /root/6379.conf     
+//可以先备份一份，防止修改错误没法还原
+[root@host50 utils]# /etc/init.d/redis_6379 stop
+[root@host50 utils]# vim /etc/redis/6379.conf
+...
+bind  192.168.4.50                //设置服务使用的ip
+port 6350                            //更改端口号
+requirepass 123456                //设置密码
+：wq
+
+2）修改启动脚本
+[root@host50 ~]# vim  +43  /etc/init.d/redis_6379
+$CLIEXEC -h 192.168.4.50 -p 6350 -a 123456  shutdown
+:wq
+
+若不修改脚本也可以用以下命令停止服务
+redis-cli -h 192.168.4.50 -p 6350 -a 123456 shutdown　
 
 
+3）启动服务
+[root@host50 ~]# /etc/init.d/redis_6379  start
+Starting Redis server...
+[root@host50 ~]# 
+[root@host50 ~]# netstat -utnlp  | grep redis-server
+tcp        0      0 192.168.4.50:6350       0.0.0.0:*               LISTEN      11523/redis-server  
+[root@host50 ~]#
+4）测试配置
+访问服务存取数据
+[root@host50 ~]# redis-cli -h 192.168.4.50 -p 6350 -a 123456 //访问服务
+192.168.4.50:6350> ping
+PONG
+192.168.4.50:6350> keys *
+(empty list or set)
+192.168.4.50:6350> 
+192.168.4.50:6350> set x 99
+OK
+192.168.4.50:6350>
+192.168.4.50:6350> exit
+[root@host50 ~]#
 
+4 案例4：部署LNMP+Redis
+4.1 问题
 
+具体要求如下：
+在主机192.168.4.57部署LNMP 环境
+配置PHP支持redis
+编写网站脚本，把数据存储到redis服务器192.168.4.50
+4.2 步骤
 
+实现此案例需要按照如下步骤进行。
+步骤一：在主机192.168.4.57部署LNMP 环境
 
+1）安装源码nginx软件及php-fpm
+]#yum  -y  install  gcc    pcre-devel   zlib-devel  //安装依赖
+]#tar  -zxvf  nginx-1.12.2.tar.gz  //解压
+]#cd nginx-1.12.2  //进源码目录
+]#./configure  //配置
+[root@localhost nginx-1.12.2]# make //编译
+[root@localhost nginx-1.12.2]#make  install //安装
+root@localhost nginx-1.12.2]# ls /usr/local  //查看安装目录
+]#yum   -y     install  php-fpm  //安装php-fpm
+2）修改配置nginx.conf
+] # vim   +65  /usr/local/nginx/conf/nginx.conf
+      location ~ \.php$ {
+              root           html;
+              fastcgi_pass   127.0.0.1:9000;
+              fastcgi_index  index.php;
+              include        fastcgi.conf;
+       }
+:wq
+]#  /usr/local/nginx/sbin/nginx  -t     //测试修改
 
+3）启动服务
+启动php-fpm服务
+]#  systemctl  start php-fpm  //启动服务
+]#  netstat  -utnlp  | grep  :9000  //查看端口
+启动nginx服务
+]# /usr/local/nginx/sbin/nginx
+]# netstat  -utnlp  | grep  :80
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      23505/nginx: master
+4）测试配置
+]# vim  /usr/local/nginx/html/test.php  //编写php文件
+<?php
+        echo  "hello world!!!";
+?>
+:wq
+]# curl  http://localhost/test.php     //访问nginx服务
+                hello world!!!
 
+步骤二：配置PHP支持redis
+1）安装php扩展
+ [root@host71 ~]# rpm -q php php-devel
+[root@host71 ~]# rpm -q automake autoconf
+[root@host71 ~]# yum -y  install php php-devel automake autoconf //安装依赖　
+]# tar -zxf php-redis-2.2.4.tar.gz //安装扩展包
+]# cd phpredis-2.2.4/
+]# phpize            //生成配置文件php-config及 configure命令
+Configuring for:
+PHP Api Version:         20100412
+Zend Module Api No:      20100525
+Zend Extension Api No:   220100525
+]# ./configure  --with-php-config=/usr/bin/php-config //配置
+]# make //编译
+]# make install //安装
 
+2）修改php.ini文件
 
+]#vim /etc/php.ini
+728 extension_dir = "/usr/lib64/php/modules/"  //模块文件目录
+730 extension = "redis.so"  //模块文件名
+:wq
+]# systemctl  restart php-fpm //重启php-fpm服务
+]# php -m | grep  -i redis     //查看已加载的模块
+redis
 
+步骤三：测试配置：编写网站脚本，把数据存储到redis服务器192.168.4.50
 
+1）查看192.168.4.50主机的redis服务是否运行
+ [root@host50 ~]# netstat -utnlp  | grep redis-server
+tcp        0      0 192.168.4.50:6350       0.0.0.0:*               LISTEN      11523/redis-server  
+[root@host50 ~]#
+[root@host50 ~]# redis-cli -h 192.168.4.50 -p 6350 -a 123456 //访问服务
+192.168.4.50:6350> ping
+PONG
+192.168.4.50:6350> exit 
+2）编写网站脚本
+]# vim  /usr/local/nginx/html/linkredis.php
+<?php
+$redis = new redis();
+$redis->connect("192.168.4.50","6350");
+$redis->auth("123456");
+$redis->set("linux","redhat");
+echo $redis->get("linux");
+?>
+:wq 
 
-
-
-
+3）访问网站脚本
+]#curl  http://localhost/linkredis.php      //访问nginx服务
+   redhat   
+4）在192.168.4.50 服务器，查看数据
+[root@host50 ~]# redis-cli -h 192.168.4.50 -p 6350 -a 123456 //连接redis服务
+192.168.4.50:6350> keys *   //查看变量
+1) "linux"
+192.168.4.50:6350> 
+192.168.4.50:6350> get linux //获取值
+"redhat"
+192.168.4.50:6350> 
 
 
 
