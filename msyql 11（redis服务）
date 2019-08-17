@@ -1,0 +1,37 @@
+NOSQL 数据库管理
+1　数据库类型
+1.1 RDBMS
+－关系数据库管理系统(Relational Database Management System)
+－按照预先设置的组织架构，将数据存储在物理介质上
+－数据之间可以做关联操作
+
+主流的RDBMS软件：Mysql,MariaDB Oracle,DB2,SQL server
+
+1.2NoSQL
+－泛指非关系型数据库
+－不需要预先定义数据存储结构
+－每条记录可以有不同的数据类型和字段个数
+
+主流软件：Memcached,Redis,MongoDB,CouchDB,FlockDB,Neo4j
+
+2.部署Redis介绍
+
+2.1Redis
+－Remote Dictionary Server(远程字典服务器)
+－是一款高性能的（Key/Values）分布式内存数据库
+－支持数据持久化（定期把内存里的数据存储到硬盘）
+－支持多种数据类型string,list,hash.......
+－支持主从模式数据备份
+
+2.2安装软件
+步骤一：搭建redis服务器
+
+1）安装源码redis软件
+ [root@redis1 redis]# yum -y install gcc 
+[root@redis1 redis]# tar -zxf redis-4.0.8.tar.gz
+[root@redis1 redis]# cd redis-4.0.8/
+[root@redis1 redis-4.0.8]# ls
+00-RELEASENOTES  CONTRIBUTING  deps     Makefile   README.md   runtest          runtest-sentinel  src    utils
+BUGS             COPYING       INSTALL  MANIFESTO  redis.conf  runtest-cluster  sentinel.conf     tests
+[root@redis1 redis-4.0.8]# make
+[root@redis1 redis-4.0.8]# make install
