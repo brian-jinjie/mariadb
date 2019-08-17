@@ -35,3 +35,118 @@ NOSQL 数据库管理
 BUGS             COPYING       INSTALL  MANIFESTO  redis.conf  runtest-cluster  sentinel.conf     tests
 [root@redis1 redis-4.0.8]# make
 [root@redis1 redis-4.0.8]# make install
+[root@redis1 redis-4.0.8]# cd utils/
+[root@redis1 utils]# ./install_server.sh
+Welcome to the redis service installer
+This script will help you easily set up a running redis server
+Please select the redis port for this instance: [6379] 
+Selecting default: 6379
+Please select the redis config file name [/etc/redis/6379.conf] 
+Selected default - /etc/redis/6379.conf
+Please select the redis log file name [/var/log/redis_6379.log] 
+Selected default - /var/log/redis_6379.log
+Please select the data directory for this instance [/var/lib/redis/6379] 
+Selected default - /var/lib/redis/6379
+Please select the redis executable path [/usr/local/bin/redis-server] 
+Selected config:
+Port           : 6379                   //端口号
+Config file    : /etc/redis/6379.conf         //配置文件目录
+Log file       : /var/log/redis_6379.log      //日志目录
+Data dir       : /var/lib/redis/6379          //数据库目录
+Executable     : /usr/local/bin/redis-server  //启动程序的目录
+Cli Executable : /usr/local/bin/redis-cli     //命令行的连接工具
+Is this ok? Then press ENTER to go on or Ctrl-C to abort.  //回车完成配置
+Copied /tmp/6379.conf => /etc/init.d/redis_6379    //服务启动脚本
+Installing service...
+Successfully added to chkconfig!
+Successfully added to runlevels 345!
+Starting Redis server...  //提示服务已经启动
+Installation successful!        //提示安装成功
+2）查看服务状态
+[root@redis1 utils]#  /etc/init.d/redis_6379 status
+Redis is running (15203)
+3）查看监听的端口
+[root@redis1 utils]# netstat -antupl |grep :6379 //查看端口
+tcp        0      0 127.0.0.1:6379          0.0.0.0:*               LISTEN      15203/redis-server
+[root@redis1 utils]# ps  -C redis-server  //查看进程
+  PID TTY          TIME CMD
+15203 ?        00:00:00 redis-server
+4）停止服务
+[root@redis1 utils]# /etc/init.d/redis_6379 stop
+Stopping ...
+Waiting for Redis to shutdown ...
+Redis stopped
+5）连接redis
+[root@redis1 utils]# /etc/init.d/redis_6379 start 
+Starting Redis server...
+[root@redis1 utils]# redis-cli  //默认连接127.0.0.1地址的 6379端口
+127.0.0.1:6379> ping
+PONG            //PONG说明服务正常
+
+
+常用redis命令
+set key名　key值      //存储一个key值
+mset keｙ名列表      //存储多个key值
+get  key名         //获取key值
+mget key名列表     //获取多个key值
+select 数据库编号0-15　//切换库
+keys  *          //显示所有key名
+keys  a?        //显示指定key名
+exists  key名   //测试key名是否存在
+ttl 　key名　　　//查看key生存时间
+type   key名　　//查看key类型
+move key名　　　//库编号
+expire key名　　数字　　//设置key有效时间
+del key名　　　//删除制定key
+flushall      //删除内存里所有key
+flushdb      //删除所在库的所有key
+save         //保存所有key到硬盘
+shutdown     //停止服务
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
