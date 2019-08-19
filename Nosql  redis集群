@@ -1,0 +1,97 @@
+
+hash solt（hash 槽）范围：0~16383
+
+
+1.创建集群
+  1.在所有集群主机上运行redis服务
+  2.在所有主机上启用集群功能
+  3.配置管理主机57
+  4.创建集群
+  5.访问集群存取数据
+  6.集群的工作原理
+
+2.管理集群
+ 2.1 向集群里添加新的redis服务器
+   2.1.1添加master角色服务器
+   2.1.2添加slave 角色服务器
+   2.1.3删除slave 角色服务器
+   2.1.4
+   
+   1.3 步骤
+
+常见报错问题：
+   3.1   
+   （1）数据没有清空
+    redis服务器没有启用集群功能
+    rm -rf /var/lib/redis/6379/nodes-6379.conf（该文件存放redis集群信息）
+    重启动redis服务
+    在管理主机再次执行创建集群命令
+    
+       4.1集群工作原理
+       获取变量名  用 crc16 算法 做hash计算 把计算结果与16384做求模计算，根据计算结果存储数据
+       4.2测试集群的高可用性
+      停止master主机的redis服务  
+      master宕机后对应的slave 自动被选为master
+  
+    
+ 
+       
+
+实现此案例需要按照如下步骤进行。
+
+步骤一：配置管理主机mgm57
+
+1）部署ruby脚本运行环境
+
+    [root@mgm57 ~]#yum  -y  install   rubygems 
+    [root@mgm57 ~]# which gem
+    /usr/bin/gem
+    [root@mgm57 ~]# ls  *.gem
+    redis-3.2.1.gem
+    [root@mgm57 ~]#
+    [root@mgm57 ~]# gem install redis-3.2.1.gem
+    Successfully installed redis-3.2.1
+    Parsing documentation for redis-3.2.1
+    Installing ri documentation for redis-3.2.1
+    1 gem installed
+    [root@mgm57 ~]#
+
+2）创建管理集群脚本
+
+    [root@mgm57 ~]#mkdir  /root/bin     //创建命令检索目录
+    [root@mgm57 ~]#tar -zxvf redis-4.0.8.tar.gz
+    [root@mgm57 ~]#cd  redis-4.0.8/src/
+    [root@mgm57 ~]#cp  redis-trib.rb   /root/bin/ //创建管理集群脚本
+    [root@mgm57 ~]#chmod  +x   /root/bin/redis-trib.rb
+    [root@mgm57 ~]#redis-trib.rb   help  //查看命令帮助
+    
+    步骤二：创建集群
+
+1）启动服务器192.168.4.51的集群功能(其他五台需要做一样的配置）
+
+    [root@redisA ~]# /etc/init.d/redis_6379 stop //停止redis服务
+    Stopping ...
+    Waiting for Redis to shutdown ...
+    Redis stopped
+    [root@redisA ~]# vim /etc/redis/6379.conf //修改配置文件
+    bind 192.168.4.51        //修改ip
+    port 6351        //修改端口（可选配置）
+    cluster-enabled yes     //启用集群功能
+    cluster-config-file nodes-6379.conf //存储集群信息的配置文件
+    cluster-node-timeout 5000        //集群节点通信超时时间
+    :wq
+    [root@redisA ~]# rm  -rf  /var/lib/redis/6379/*   //清空数据
+    [root@redisA ~]# vim  +43 /etc/init.d/redis_6379
+    $CLIEXEC -h 192.168.4.51 -p 6351 shutdown
+    :wq
+    [root@redisA ~]# /etc/init.d/redis_6379 start
+    Starting Redis server...
+    [root@redisA ~]# netstat -utnlp  | grep redis-server
+    tcp  0  0 192.168.4.51:6351  0.0.0.0:*   LISTEN      21201/redis-server  
+    tcp  0  0 192.168.4.51:16351   0.0.0.0:*   LISTEN   21201/redis-server   
+    
+   [root@mgm57 ~]# redis-trib.rb create  --replicas 1 \
+> 192.168.4.51:6351  192.168.4.52:6352  192.168.4.53:6353 \
+> 192.168.4.54:6354  192.168.4.55:6355  192.168.4.56:6356
+
+
