@@ -1,11 +1,338 @@
 reids主从复制
  1.1 redis主从复制
  1.1 redis 主从复制结构：一主一从、一主多从、主从从
+ 　工作原理：
+  　－slave向master发送sync命令
+    －master启动台存盘进程，并收集所有修改数据命令
+    －master完成后存盘后，传送整个数据文件到slave
+    －slave接收数据文件，加载到内存中完成首次完全同步
+    －后续有新数据产生时，master继续收集数据修改命令一次传给slave，完成同步．
+ 
+ 
+ 
  1.3 redis 主从复制配置命令？
- > info replication
- > slaveof 主服务器ip 端口
- > slaveof no one
+ 
+ > info replication　　　　　　//查看主从服务器信息
+ > slaveof 主服务器ip 　端口　　//临时设置主从配置
+ > slaveof no one　　　　　　　//临时取消主从结构
  1.4 永久配置
     】# vim /etc/redis/6379.conf
   282行  slaveof 主服务器ip 端口行
   :wq
+   
+1.3 步骤
+
+实现此案例需要按照如下步骤进行。
+步骤一：将主机192.168.4.51配置为主服务器
+
+1） 每台redis服务器，默认都是主服务器;所以主服务器不需要配置。
+
+步骤二：将主机192.168.4.52配置为192.168.4.51的从服务器
+1）命令行配置（马上生效）[root@redisB ~]# redis-cli -h 192.168.4.52 –p 6352    
+192.168.4.52:6352> slaveof  192.168.4.51  6351  //临时指定主服务器ip地址与端口
+OK
+192.168.4.52:6352> info replication   //查看复制信息
+．．．．．．
+
+2）永久配置（重新redis服务后，依然有效）
+[root@redisB ~]# vim /etc/redis/6379.conf    
+slaveof  192.168.4.51  6351    //在文件末尾添加或在原有配置项上修改都可以
+:wq
+
+步骤三：测试配置
+
+1）客户端连接主服务器存储数据
+
+[root@client50 ~]# redis-cli -h 192.168.4.51 –p 6351    
+192.168.4.51:6351> set x  9
+OK
+192.168.4.51:6351> set y  8
+OK
+
+2）在从服务器本机登录，查看数据（与主服务器数据一致）
+[root@redisB ~]#     redis-cli -h 192.168.4.52 –p 6352
+192.168.4.52:6352> keys  *
+1）“x”
+2）“y”
+
+2 案例2：配置带验证的主从复制
+步骤一：设置主服务器192.168.4.51 设置连接密码123456
+
+1） 修改主服务器的配置文件，设置密码。
+[root@redisA ~]# vim +501 /etc/redis/6379.conf 
+requirepass  123456   //设置密码
+:wq
+[root@redisA ~]# vim +43  /etc/init.d/redis_6379  //修改脚本
+$CLIEXEC -h 192.168.4.51 -p 6351 -a 123456  shutdown //添加密码
+:wq
+[root@redisA ~]# /etc/init.d/redis_6379 stop //停止服务
+[root@redisA ~]# /etc/init.d/redis_6379  start //启动服务
+Starting Redis server...
+[root@redisA ~]# 
+[root@redisA ~]# netstat -utnlp  | grep  :6351  //查看端口
+
+步骤二：配置从服务器192.168.4.52
+1） 修改配置文件，设置主服务器连接密码。
+root@redisB ~]# /etc/init.d/redis_6379 stop //停止服务
+[root@redisB ~]# vim +289 /etc/redis/6379.conf 
+masterauth  123456   //设置密码
+:wq
+[root@redisA ~]# /etc/init.d/redis_6379  start //启动服务
+Starting Redis server...
+[root@redisA ~]# 
+[root@redisA ~]# netstat -utnlp  | grep  :6351  //查看端口
+
+2） 在从服务器本机连接服务，查看复制信息
+[root@redisB ~]# redis-cli -h 192.168.4.52 –p 6352    
+192.168.4.52:6352> info replication   //查看复制信息
+
+
+###############################################################
+哨兵服务
+哨兵服务介绍
+－监视master服务器
+－发现master宕机，将从服务器升级为主服务器
+－主配置文件　sentinel.conf
+－模板文件：redis-4.0.8／sentinel.conf
+
+哨兵服务配置文件书写格式：
+]# vim /etc/sentinel.conf
+sentinel monitor 主机名　ip地址　端口　（票数）哨兵服务器数量
+主机名：自定义
+ip地址：　master 主机的ip地址
+端口　：　master主机的redis服务使用端口
+票数　：　发现主机宕机的哨兵服务个数
+
+
+
+
+
+步骤一：配置哨兵服务（192.168.4.57）
+1） 安装源码软件redis ，无需做初始化配置。
+[root@redis57 redis]# yum -y install gcc 
+[root@redis57 redis]# tar -zxf redis-4.0.8.tar.gz
+[root@redis57 redis]# cd redis-4.0.8/
+[root@redis1 redis-4.0.8]# make
+[root@redis1 redis-4.0.8]# make install
+
+2）编辑主配置文件
+[root@redis57 redis]# vim  /etc/sentinel.conf  //创建主配置文件
+sentinel   monitor   server51   192.168.4.51   6351   1 //监视主服务器
+bind  0.0.0.0    //哨兵服务地址（表示本机所有网络接口）
+sentinel auth-pass  server51   123456   //主服务器密码
+:wq
+3）启动哨兵服务
+[root@redis57 redis]# redis-sentinel /etc/sentinel.conf    //启动哨兵服务
+25371:X 28 Sep 11:16:54.993 # +sdown master redis51 192.168.4.51 6351
+25371:X 28 Sep 11:16:54.993 # +odown master redis51 192.168.4.51 6351 #quorum 1/1
+25371:X 28 Sep 11:16:54.993 # +new-epoch 3
+25371:X 28 Sep 11:16:54.993 # +try-failover master redis51 192.168.4.51 6351
+25371:X 28 Sep 11:16:54.994 # +vote-for-leader be035801d4d48eb63d8420a72796f52fc5cec047 3
+...
+25371:X 28 Sep 11:16:55.287 * +slave slave 192.168.4.51:6351 192.168.4.51 6351 @ redis51 192.168.4.52 6351
+25371:X 28 Sep 11:17:25.316 # +sdown slave 192.168.4.51:6379 192.168.4.51 6379 @ redis51 192.168.4.52 6352
+
+步骤二：测试配置
+
+1）停止主服务器51的redis服务
+[root@redisA ~]#     /etc/init.d/redis_6379 stop
+Stopping ...
+Waiting for Redis to shutdown ...
+Redis stopped
+[root@redisA ~]#
+2）在服务器52主机，查看复制信息
+ [root@redisB ~]# redis-cli -h 192.168.4.52 -p 6352
+192.168.4.52:6352> info replication
+# Replication
+role:master  //角色是master
+connected_slaves:0
+……
+……
+
+###################################################################################
+RDB介绍
+Redis数据库文件，全称RedisDataBase
+－数据持久化方式之一
+－数据持久化默认方式
+－按照制定时间间隔，将内存中的数据集快照写入硬盘
+－快照术语叫Snapshot
+－恢复时，将快照文件直接读入内存
+定义RDB 文件名
+－dbfilename "dump.rdb"   //文件名
+
+．使用RDB文件恢复数据
+－备份dump.rdb 文件到其他位置
+］＃　cp 数据库目录/dump.rdb
+.恢复数据
+－拷贝备份文件到数据目录，重启redis服务
+］＃
+
+优化设置
+．数据从内存保存到硬盘的频率
+－save 900 1       //15分钟且有一个key改变
+－save 300 10     //5分钟且有１０个key改变
+－save 60  100000 //1分钟且有10000个key改变
+
+手动存盘
+－save   //阻塞写存盘
+－bgsave //不阻塞写存盘
+
+
+RDB优点
+－高性能的持久化实现－－创建一个子进程来执行持久化，先将数据写入临时文件，持久化过程结束后，再用
+这个临时文件替换上次持久化好的文件；过程中主进程不做任何IO操作
+－比较适合大规模数据恢复，且对数据完成性要求不是非常高的场合
+RDB缺点
+－意外宕机时，丢失最后一次持久化的所有数据
+
+AOF
+Append Only File
+－追加方式记录写操作的文件
+－记录redis服务所有写操作
+－不断的将新的写的操作，追加到文件的末尾
+－默认没有启用
+－使用cat命令可以查看文件内容
+
+
+使用AOF文件恢复数据
+.备份数据
+－备份appendonly.aof文件到其他位置
+．恢复数据
+－拷贝备份文件到数据库目录
+－重启redis服务
+］＃　cp 备份目录/appendonly.aof 数据库目录
+］＃　/etc/redis/redis_端口　start
+
+优化配置
+．定义文件名
+－appendonly yes
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃＃
+数据类型
+
+String字符串
+　　字符串操作
+．set key value [ex seconds] [px milliseconds] [nx|xx]
+－设置key及值，过期时间可以使用秒或毫秒作为单位
+．setrange key offset value
+－从偏移量开始复写key的特定位的值
+> set first "hello world"
+> setrange frist 6 "Redis"
+.strlen key ,统计字串长度
+> strlen first
+例子：
+192.168.4.50:6350> set first "hello worls"　　//定义first值内容为＂hello　world"　
+OK
+192.168.4.50:6350> setrange first 6 "redis"  //把first值从0开始算起的第六位以后的内容更改为redis
+(integer) 11
+192.168.4.50:6350> get first
+"hello redis"
+192.168.4.50:6350> strlen first
+(integer) 11
+192.168.4.50:6350> setrange first 5 "X"
+(integer) 11
+192.168.4.50:6350> get first
+"helloXredis"
+
+．append key value
+－存在则追加，不存在则创建key及value ，返回key长度
+> append myname jacob
+
+######################################################
+．setbit key offset value  (位存储)    //应用场景
+－对key所存储子串，设置或清除特定偏移量上的位（bit）
+－value值可以为1或０，offset为0～2^32之间
+－key不存在，则创建新key
+
+> sebit bit 0 1
+>setbit bit 1 0
+
+．字符串操作bitcount key
+　－统计字串中被设置为１的比特位数量
+setbit bits 0 1　　//0001
+setbit bits 1 0   //1001
+bitcount bits    //结果为２ 
+
+．bitcount key
+ －统计子串中
+>setbit peter 100 1  //网站上线100天用户登录了一次
+>setbit peter 105 1　//网站上线105天用户登录了一次
+>bitcount peter 
+
+字符串操作
+．decr key
+－将key中的值减１,key不存在则先初始化为0，再减１
+> set test 10
+> decr test
+.decrby key decrement
+－将key中的值，减去decrement
+> set count 100
+> decrby count 20
+－返回
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
