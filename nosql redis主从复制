@@ -1,0 +1,11 @@
+reids主从复制
+ 1.1 redis主从复制
+ 1.1 redis 主从复制结构：一主一从、一主多从、主从从
+ 1.3 redis 主从复制配置命令？
+ > info replication
+ > slaveof 主服务器ip 端口
+ > slaveof no one
+ 1.4 永久配置
+    】# vim /etc/redis/6379.conf
+  282行  slaveof 主服务器ip 端口行
+  :wq
